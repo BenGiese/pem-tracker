@@ -856,7 +856,7 @@ function nextId() { return _nextId++; }
 // ─── CSV Import ───────────────────────────────────────────────────────────────
 
 const IMPORT_FIELDS = [
-  { key:"Datum",            label:"Datum" },
+  { key:"Datum",            label:"Datum", required:true },
   { key:"Ab_Fatigue",       label:"Abend: Fatigue" },
   { key:"Ab_Schmerz",       label:"Abend: Schmerz" },
   { key:"Ab_Brainfog",      label:"Abend: Brainfog" },
@@ -885,10 +885,15 @@ function parseCSVRow(row) {
   return result;
 }
 
+const DATE_ALIASES = ["datum", "date", "tag", "day", "dat"];
+
 function buildColMap(headers) {
   const map = {};
+  const norm = h => h.trim().toLowerCase();
   IMPORT_FIELDS.forEach(({ key }) => {
-    const idx = headers.findIndex(h => h.trim() === key);
+    let idx = headers.findIndex(h => h.trim() === key);
+    if (idx < 0 && key === "Datum")
+      idx = headers.findIndex(h => DATE_ALIASES.includes(norm(h)));
     if (idx >= 0) map[key] = idx;
   });
   return map;
@@ -926,7 +931,8 @@ function ImportModal({ parsed, existingDates, onImport, onClose }) {
   const fresh     = mapped.filter(e => !existingDates.has(e.date));
   const toImport  = mode === "overwrite" ? mapped : fresh;
 
-  const needsMapper = IMPORT_FIELDS.some(f => f.key !== "Datum" && colMap[f.key] === undefined);
+  const datumMissing = colMap["Datum"] === undefined;
+  const needsMapper  = datumMissing || IMPORT_FIELDS.some(f => !f.required && colMap[f.key] === undefined);
 
   return (
     <div style={{ position:"fixed", inset:0, background:"#020617f0", zIndex:60, overflowY:"auto" }}>
@@ -941,11 +947,13 @@ function ImportModal({ parsed, existingDates, onImport, onClose }) {
             {needsMapper && (
               <div style={{ marginBottom:"1rem" }}>
                 <div style={{ fontSize:"0.68rem", color:"#f87171", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:"0.6rem" }}>Spalten zuordnen</div>
-                {IMPORT_FIELDS.map(({ key, label }) => (
+                {IMPORT_FIELDS.map(({ key, label, required }) => (
                   <div key={key} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.5rem", gap:"0.5rem" }}>
-                    <span style={{ fontSize:"0.72rem", color:"#94a3b8", flex:1 }}>{label}</span>
+                    <span style={{ fontSize:"0.72rem", color: required && colMap[key] === undefined ? "#f87171" : "#94a3b8", flex:1 }}>
+                      {label}{required ? " *" : ""}
+                    </span>
                     <select value={colMap[key] ?? ""} onChange={e => setColMap(m => ({ ...m, [key]: e.target.value === "" ? undefined : Number(e.target.value) }))}
-                      style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.25rem 0.4rem", fontSize:"0.72rem", fontFamily:"inherit", maxWidth:"180px" }}>
+                      style={{ background:"#1e293b", border:`1px solid ${required && colMap[key] === undefined ? "#f87171" : "#334155"}`, borderRadius:"6px", color:"#e2e8f0", padding:"0.25rem 0.4rem", fontSize:"0.72rem", fontFamily:"inherit", maxWidth:"180px" }}>
                       <option value="">— nicht zuordnen —</option>
                       {parsed.headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
                     </select>
@@ -976,9 +984,9 @@ function ImportModal({ parsed, existingDates, onImport, onClose }) {
 
             <div style={{ display:"flex", gap:"0.5rem" }}>
               <button onClick={onClose} style={{ padding:"0.65rem 1rem", borderRadius:"8px", border:"1px solid #334155", background:"none", color:"#64748b", cursor:"pointer", fontFamily:"inherit" }}>Abbrechen</button>
-              <button onClick={() => onImport(toImport, mode)} disabled={toImport.length === 0}
-                style={{ flex:1, padding:"0.65rem", borderRadius:"8px", border:"none", background: toImport.length === 0 ? "#334155" : "#4f46e5", color:"#fff", cursor: toImport.length === 0 ? "default" : "pointer", fontFamily:"inherit", fontWeight:700, fontSize:"0.9rem" }}>
-                Importieren
+              <button onClick={() => onImport(toImport, mode)} disabled={datumMissing || toImport.length === 0}
+                style={{ flex:1, padding:"0.65rem", borderRadius:"8px", border:"none", background: datumMissing || toImport.length === 0 ? "#334155" : "#4f46e5", color: datumMissing || toImport.length === 0 ? "#64748b" : "#fff", cursor: datumMissing || toImport.length === 0 ? "default" : "pointer", fontFamily:"inherit", fontWeight:700, fontSize:"0.9rem" }}>
+                {datumMissing ? "Datumsspalte fehlt *" : "Importieren"}
               </button>
             </div>
           </div>
