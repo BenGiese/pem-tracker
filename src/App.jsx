@@ -382,7 +382,7 @@ function TriggerChips({ selected, onChange, allTriggers, onAddCustom }) {
       <label style={{ display: "block", fontSize: "0.78rem", color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "0.5rem" }}>Mögliche Trigger heute</label>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginBottom: "0.5rem" }}>
         {allTriggers.map(t => (
-          <button key={t} onClick={() => toggle(t)} style={{ padding: "0.28rem 0.6rem", borderRadius: "20px", cursor: "pointer", fontSize: "0.68rem", fontFamily: "inherit", border: `1px solid ${selected.includes(t) ? "#818cf8" : "#334155"}`, background: selected.includes(t) ? "#1e1b4b" : "#0f172a", color: selected.includes(t) ? "#818cf8" : "#475569" }}>{t}</button>
+          <button key={t} onClick={() => toggle(t)} style={{ padding: "0.28rem 0.6rem", borderRadius: "20px", cursor: "pointer", fontSize: "0.68rem", fontFamily: "inherit", border: `1px solid ${selected.includes(t) ? "#818cf8" : "#334155"}`, background: selected.includes(t) ? "#1e1b4b" : "#0f172a", color: selected.includes(t) ? "#818cf8" : "#94a3b8" }}>{t}</button>
         ))}
       </div>
       <div style={{ display: "flex", gap: "0.4rem" }}>
@@ -439,10 +439,10 @@ function CalibrationPanel({ entries, settings }) {
               </div>
             ))}
           </div>
-          <div style={{ fontSize:"0.68rem", color:"#475569" }}>Basiert auf {n} Tagen · Score ≥ {cal.threshold} = hohes Risiko</div>
+          <div style={{ fontSize:"0.68rem", color:"#94a3b8" }}>Basiert auf {n} Tagen · Score ≥ {cal.threshold} = hohes Risiko</div>
         </>
       ) : (
-        <div style={{ fontSize:"0.78rem", color:"#475569" }}>Noch nicht genug Daten. <span style={{ color:"#818cf8" }}>{Math.max(0,5-n)} weitere Tage</span> mit Bestätigung nötig.</div>
+        <div style={{ fontSize:"0.78rem", color:"#94a3b8" }}>Noch nicht genug Daten. <span style={{ color:"#818cf8" }}>{Math.max(0,5-n)} weitere Tage</span> mit Bestätigung nötig.</div>
       )}
     </div>
   );
@@ -456,7 +456,7 @@ function CorrelationBlock({ title, subtitle, data }) {
       <div style={{ fontSize:"0.68rem", color:"#818cf8", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:"0.25rem" }}>{title}</div>
       <div style={{ fontSize:"0.65rem", color:"#334155", marginBottom:"0.8rem" }}>{subtitle}</div>
       {data.map(c => {
-        const color = c.sig==="high"?"#f87171":c.sig==="med"?"#facc15":"#475569";
+        const color = c.sig==="high"?"#f87171":c.sig==="med"?"#facc15":"#94a3b8";
         const isPct = c.pemRate !== undefined;
         return (
           <div key={c.key} style={{ marginBottom:"0.65rem" }}>
@@ -484,7 +484,7 @@ function AnalysisPanel({ entries, allTriggers, settings }) {
   if (n < 7) return (
     <div style={{ background:"#0f172a", borderRadius:"12px", padding:"1rem 1.2rem", border:"1px solid #1e293b" }}>
       <div style={{ fontSize:"0.68rem", color:"#818cf8", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:"0.5rem" }}>Faktoranalyse</div>
-      <div style={{ fontSize:"0.78rem", color:"#475569" }}>Ab 7 bestätigten Tagen wird die Analyse freigeschaltet. <span style={{ color:"#818cf8" }}>Noch {Math.max(0,7-n)} Tage nötig.</span></div>
+      <div style={{ fontSize:"0.78rem", color:"#94a3b8" }}>Ab 7 bestätigten Tagen wird die Analyse freigeschaltet. <span style={{ color:"#818cf8" }}>Noch {Math.max(0,7-n)} Tage nötig.</span></div>
     </div>
   );
 
@@ -522,7 +522,7 @@ function StreakBanner({ streak }) {
         <div key={label} style={{ background:"#0f172a", borderRadius:"10px", padding:"0.7rem 0.5rem", textAlign:"center", border:"1px solid #1e293b" }}>
           <div style={{ display:"flex", justifyContent:"center", color:"#818cf8", marginBottom:"0.2rem" }}>{icon}</div>
           <div style={{ fontSize:"1.1rem", fontFamily:"monospace", fontWeight:700, color:"#e2e8f0" }}>{val}</div>
-          <div style={{ fontSize:"0.58rem", color:"#475569", marginTop:"0.1rem" }}>{label}</div>
+          <div style={{ fontSize:"0.58rem", color:"#94a3b8", marginTop:"0.1rem" }}>{label}</div>
         </div>
       ))}
     </div>
@@ -560,13 +560,13 @@ function EntryCard({ entry, onDelete, onEdit, entries, settings }) {
       {expanded&&(
         <div style={{ padding:"0 1.1rem 0.9rem", borderTop:"1px solid #334155" }}>
           <div style={{ paddingTop:"0.8rem", display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0.5rem 1rem", marginBottom:"0.7rem" }}>
-            {[["Schlaf Vornacht",ev?.unrefreshing_sleep_prev,"/10"],["Aktivität",ev?.activity_today!==undefined?ACTIVITY_LABELS[ev.activity_today]:"—",""],["PEM heute",ev?.pem_today===true?"Ja":ev?.pem_today===false?"Nein":"—",""],["Morgen-rMSSD",mo?.rmssd_garmin?`${mo.rmssd_garmin} ms`:"—",""],["Morgenpuls",mo?.morning_hr?`${mo.morning_hr} bpm`:"—",""],["Atemfrequenz",mo?.breath_rate?`${mo.breath_rate}/min`:"—",""],["Sym. Aufwachen",mo?.symptom_on_waking!==undefined?mo.symptom_on_waking:"—",mo?.symptom_on_waking!==undefined?"/10":""]].map(([l,v,u])=>(<div key={l}><div style={{ fontSize:"0.6rem", color:"#475569", marginBottom:"0.1rem" }}>{l}</div><div style={{ fontSize:"0.82rem", color:"#e2e8f0", fontFamily:typeof v==="number"?"monospace":"inherit" }}>{v}{u}</div></div>))}
+            {[["Schlaf Vornacht",ev?.unrefreshing_sleep_prev,"/10"],["Aktivität",ev?.activity_today!==undefined?ACTIVITY_LABELS[ev.activity_today]:"—",""],["PEM heute",ev?.pem_today===true?"Ja":ev?.pem_today===false?"Nein":"—",""],["Morgen-rMSSD",mo?.rmssd_garmin?`${mo.rmssd_garmin} ms`:"—",""],["Morgenpuls",mo?.morning_hr?`${mo.morning_hr} bpm`:"—",""],["Atemfrequenz",mo?.breath_rate?`${mo.breath_rate}/min`:"—",""],["Sym. Aufwachen",mo?.symptom_on_waking!==undefined?mo.symptom_on_waking:"—",mo?.symptom_on_waking!==undefined?"/10":""]].map(([l,v,u])=>(<div key={l}><div style={{ fontSize:"0.6rem", color:"#94a3b8", marginBottom:"0.1rem" }}>{l}</div><div style={{ fontSize:"0.82rem", color:"#e2e8f0", fontFamily:typeof v==="number"?"monospace":"inherit" }}>{v}{u}</div></div>))}
           </div>
-          {ev?.notes&&<div style={{ marginBottom:"0.5rem", padding:"0.5rem 0.7rem", background:"#0f172a", borderRadius:"6px" }}><div style={{ fontSize:"0.6rem", color:"#475569", marginBottom:"0.2rem", display:"flex", alignItems:"center", gap:"0.25rem" }}><Moon size={10}/>Notiz Abend</div><div style={{ fontSize:"0.75rem", color:"#94a3b8", fontStyle:"italic" }}>{ev.notes}</div></div>}
-          {mo?.notes&&<div style={{ marginBottom:"0.7rem", padding:"0.5rem 0.7rem", background:"#0f172a", borderRadius:"6px" }}><div style={{ fontSize:"0.6rem", color:"#475569", marginBottom:"0.2rem", display:"flex", alignItems:"center", gap:"0.25rem" }}><Sunrise size={10}/>Notiz Morgen</div><div style={{ fontSize:"0.75rem", color:"#94a3b8", fontStyle:"italic" }}>{mo.notes}</div></div>}
+          {ev?.notes&&<div style={{ marginBottom:"0.5rem", padding:"0.5rem 0.7rem", background:"#0f172a", borderRadius:"6px" }}><div style={{ fontSize:"0.6rem", color:"#94a3b8", marginBottom:"0.2rem", display:"flex", alignItems:"center", gap:"0.25rem" }}><Moon size={10}/>Notiz Abend</div><div style={{ fontSize:"0.75rem", color:"#94a3b8", fontStyle:"italic" }}>{ev.notes}</div></div>}
+          {mo?.notes&&<div style={{ marginBottom:"0.7rem", padding:"0.5rem 0.7rem", background:"#0f172a", borderRadius:"6px" }}><div style={{ fontSize:"0.6rem", color:"#94a3b8", marginBottom:"0.2rem", display:"flex", alignItems:"center", gap:"0.25rem" }}><Sunrise size={10}/>Notiz Morgen</div><div style={{ fontSize:"0.75rem", color:"#94a3b8", fontStyle:"italic" }}>{mo.notes}</div></div>}
           <div style={{ display:"flex", gap:"0.5rem" }}>
             <button onClick={()=>onEdit(entry)} style={{ flex:1, padding:"0.45rem", borderRadius:"8px", border:"1px solid #334155", background:"none", color:"#818cf8", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem", fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", gap:"0.35rem" }}><Pencil size={13}/>Bearbeiten</button>
-            <button onClick={()=>onDelete(entry.id)} style={{ padding:"0.45rem 0.9rem", borderRadius:"8px", border:"1px solid #334155", background:"none", color:"#475569", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem", display:"flex", alignItems:"center", gap:"0.3rem" }}><Trash2 size={13}/>Löschen</button>
+            <button onClick={()=>onDelete(entry.id)} style={{ padding:"0.45rem 0.9rem", borderRadius:"8px", border:"1px solid #334155", background:"none", color:"#94a3b8", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem", display:"flex", alignItems:"center", gap:"0.3rem" }}><Trash2 size={13}/>Löschen</button>
           </div>
         </div>
       )}
@@ -586,10 +586,10 @@ function EditModal({ entry, onSave, onClose, allTriggers, onAddCustomTrigger }) 
         <div style={{ background:"#0f172a", borderRadius:"14px", border:"1px solid #1e293b" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"1rem 1.2rem 0.8rem", borderBottom:"1px solid #1e293b" }}>
             <div><div style={{ fontSize:"0.65rem", color:"#4f46e5", letterSpacing:"0.12em", textTransform:"uppercase" }}>Eintrag bearbeiten</div><div style={{ fontSize:"0.95rem", fontWeight:600, color:"#e2e8f0" }}>{entry.date}</div></div>
-            <button onClick={onClose} style={{ background:"none", border:"none", color:"#475569", cursor:"pointer", padding:"0.2rem" }}><X size={20}/></button>
+            <button onClick={onClose} style={{ background:"none", border:"none", color:"#94a3b8", cursor:"pointer", padding:"0.2rem" }}><X size={20}/></button>
           </div>
           <div style={{ display:"flex", gap:"0.5rem", padding:"0.8rem 1.2rem 0" }}>
-            {[["morning",<Sunrise size={14}/>,"Morgen"],["evening",<Moon size={14}/>,"Abend"]].map(([v,icon,l])=>(<button key={v} onClick={()=>setTab(v)} style={{ flex:1, padding:"0.48rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.82rem", fontWeight:600, border:`1px solid ${tab===v?"#818cf8":"#1e293b"}`, background:tab===v?"#1e1b4b":"#0f172a", color:tab===v?"#818cf8":"#475569", display:"flex", alignItems:"center", justifyContent:"center", gap:"0.35rem" }}>{icon}{l}</button>))}
+            {[["morning",<Sunrise size={14}/>,"Morgen"],["evening",<Moon size={14}/>,"Abend"]].map(([v,icon,l])=>(<button key={v} onClick={()=>setTab(v)} style={{ flex:1, padding:"0.48rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.82rem", fontWeight:600, border:`1px solid ${tab===v?"#818cf8":"#1e293b"}`, background:tab===v?"#1e1b4b":"#0f172a", color:tab===v?"#818cf8":"#94a3b8", display:"flex", alignItems:"center", justifyContent:"center", gap:"0.35rem" }}>{icon}{l}</button>))}
           </div>
           <div style={{ padding:"0.8rem 1.2rem 0" }}>
             {tab==="evening"&&<>
@@ -597,18 +597,18 @@ function EditModal({ entry, onSave, onClose, allTriggers, onAddCustomTrigger }) 
               <SliderField label="Schmerz" value={eve.pain} onChange={v=>setEve(s=>({...s,pain:v}))}/>
               <SliderField label="Brainfog" value={eve.brainfog} onChange={v=>setEve(s=>({...s,brainfog:v}))}/>
               <SliderField label="Schlafqualität letzte Nacht" value={eve.unrefreshing_sleep_prev} onChange={v=>setEve(s=>({...s,unrefreshing_sleep_prev:v}))} hint="0 = erholsam · 10 = unerholsam"/>
-              <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.4rem" }}>Aktivitätsniveau</label><div style={{ display:"flex", gap:"0.35rem" }}>{ACTIVITY_LABELS.map((l,i)=><button key={i} onClick={()=>setEve(s=>({...s,activity_today:i}))} style={{ flex:1, padding:"0.38rem 0.15rem", borderRadius:"6px", border:"none", cursor:"pointer", fontSize:"0.58rem", fontFamily:"inherit", background:eve.activity_today===i?"#4f46e5":"#1e293b", color:eve.activity_today===i?"#fff":"#475569" }}>{l}</button>)}</div></div>
-              <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.35rem" }}>PEM heute?</label><div style={{ display:"flex", gap:"0.5rem" }}>{[["Ja",true],["Nein",false]].map(([l,v])=><button key={l} onClick={()=>setEve(s=>({...s,pem_today:v}))} style={{ padding:"0.38rem 1.1rem", borderRadius:"6px", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:"0.82rem", background:eve.pem_today===v?(v?"#7f1d1d":"#14532d"):"#1e293b", color:eve.pem_today===v?"#fff":"#475569" }}>{l}</button>)}</div></div>
+              <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.4rem" }}>Aktivitätsniveau</label><div style={{ display:"flex", gap:"0.35rem" }}>{ACTIVITY_LABELS.map((l,i)=><button key={i} onClick={()=>setEve(s=>({...s,activity_today:i}))} style={{ flex:1, padding:"0.38rem 0.15rem", borderRadius:"6px", border:"none", cursor:"pointer", fontSize:"0.58rem", fontFamily:"inherit", background:eve.activity_today===i?"#4f46e5":"#1e293b", color:eve.activity_today===i?"#fff":"#94a3b8" }}>{l}</button>)}</div></div>
+              <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.35rem" }}>PEM heute?</label><div style={{ display:"flex", gap:"0.5rem" }}>{[["Ja",true],["Nein",false]].map(([l,v])=><button key={l} onClick={()=>setEve(s=>({...s,pem_today:v}))} style={{ padding:"0.38rem 1.1rem", borderRadius:"6px", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:"0.82rem", background:eve.pem_today===v?(v?"#7f1d1d":"#14532d"):"#1e293b", color:eve.pem_today===v?"#fff":"#94a3b8" }}>{l}</button>)}</div></div>
               <TriggerChips selected={eve.triggers||[]} onChange={triggers=>setEve(s=>({...s,triggers}))} allTriggers={allTriggers} onAddCustom={onAddCustomTrigger}/>
               <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.35rem" }}>Notiz</label><textarea value={eve.notes} onChange={e=>setEve(s=>({...s,notes:e.target.value}))} style={{ width:"100%", background:"#1e293b", border:"1px solid #334155", borderRadius:"8px", color:"#e2e8f0", padding:"0.55rem 0.75rem", fontSize:"0.85rem", fontFamily:"inherit", minHeight:"58px" }}/></div>
             </>}
             {tab==="morning"&&<>
-              <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.45rem" }}>Garmin HFV-Status</label><div style={{ display:"flex", gap:"0.45rem" }}>{HRV_OPTIONS.map(v=><button key={v} onClick={()=>setMorn(s=>({...s,hrv_status:v}))} style={{ flex:1, padding:"0.48rem 0.2rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.68rem", fontWeight:600, border:`1px solid ${morn.hrv_status===v?HRV_COLORS[v]:"#334155"}`, background:morn.hrv_status===v?`${HRV_COLORS[v]}22`:"#1e293b", color:morn.hrv_status===v?HRV_COLORS[v]:"#475569" }}>{HRV_LABELS[v]}</button>)}</div></div>
+              <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.45rem" }}>Garmin HFV-Status</label><div style={{ display:"flex", gap:"0.45rem" }}>{HRV_OPTIONS.map(v=><button key={v} onClick={()=>setMorn(s=>({...s,hrv_status:v}))} style={{ flex:1, padding:"0.48rem 0.2rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.68rem", fontWeight:600, border:`1px solid ${morn.hrv_status===v?HRV_COLORS[v]:"#334155"}`, background:morn.hrv_status===v?`${HRV_COLORS[v]}22`:"#1e293b", color:morn.hrv_status===v?HRV_COLORS[v]:"#94a3b8" }}>{HRV_LABELS[v]}</button>)}</div></div>
               <NumberField label="rMSSD" value={morn.rmssd_garmin} onChange={v=>setMorn(s=>({...s,rmssd_garmin:v}))} unit="ms" placeholder="z.B. 28"/>
               <NumberField label="Morgenpuls (liegend)" value={morn.morning_hr} onChange={v=>setMorn(s=>({...s,morning_hr:v}))} unit="bpm" placeholder="z.B. 58"/>
               <NumberField label="Atemfrequenz" value={morn.breath_rate} onChange={v=>setMorn(s=>({...s,breath_rate:v}))} unit="/min" placeholder="z.B. 16"/>
               <SliderField label="Symptomstärke beim Aufwachen" value={morn.symptom_on_waking} onChange={v=>setMorn(s=>({...s,symptom_on_waking:v}))} hint="0 = keine · 10 = schwer"/>
-              <div style={{ marginBottom:"1.2rem", padding:"0.85rem 1rem", background:"#1e293b", borderRadius:"10px", border:"1px solid #334155" }}><div style={{ fontSize:"0.7rem", color:"#818cf8", fontWeight:600, marginBottom:"0.25rem" }}>War gestern ein PEM-Tag?</div><div style={{ fontSize:"0.68rem", color:"#64748b", marginBottom:"0.55rem" }}>Kalibriert deine persönliche Risikoschwelle.</div><div style={{ display:"flex", gap:"0.45rem" }}>{[["Ja — PEM",true],["Nein",false],["Unsicher",null]].map(([l,v])=><button key={l} onClick={()=>setMorn(s=>({...s,pem_confirmed:v}))} style={{ flex:1, padding:"0.38rem 0.25rem", borderRadius:"6px", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:"0.68rem", fontWeight:600, background:morn.pem_confirmed===v?(v===true?"#7f1d1d":v===false?"#14532d":"#334155"):"#0f172a", color:morn.pem_confirmed===v?"#fff":"#475569" }}>{l}</button>)}</div></div>
+              <div style={{ marginBottom:"1.2rem", padding:"0.85rem 1rem", background:"#1e293b", borderRadius:"10px", border:"1px solid #334155" }}><div style={{ fontSize:"0.7rem", color:"#818cf8", fontWeight:600, marginBottom:"0.25rem" }}>War gestern ein PEM-Tag?</div><div style={{ fontSize:"0.68rem", color:"#64748b", marginBottom:"0.55rem" }}>Kalibriert deine persönliche Risikoschwelle.</div><div style={{ display:"flex", gap:"0.45rem" }}>{[["Ja — PEM",true],["Nein",false],["Unsicher",null]].map(([l,v])=><button key={l} onClick={()=>setMorn(s=>({...s,pem_confirmed:v}))} style={{ flex:1, padding:"0.38rem 0.25rem", borderRadius:"6px", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:"0.68rem", fontWeight:600, background:morn.pem_confirmed===v?(v===true?"#7f1d1d":v===false?"#14532d":"#334155"):"#0f172a", color:morn.pem_confirmed===v?"#fff":"#94a3b8" }}>{l}</button>)}</div></div>
               <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.35rem" }}>Notiz</label><textarea value={morn.notes} onChange={e=>setMorn(s=>({...s,notes:e.target.value}))} style={{ width:"100%", background:"#1e293b", border:"1px solid #334155", borderRadius:"8px", color:"#e2e8f0", padding:"0.55rem 0.75rem", fontSize:"0.85rem", fontFamily:"inherit", minHeight:"58px" }}/></div>
             </>}
           </div>
@@ -630,11 +630,11 @@ function OnboardingModal({ onComplete }) {
   const steps = [
     { title:"Willkommen 👋", sub:"Dieses Tool hilft dir, PEM-Episoden vorherzusagen und persönliche Auslöser zu erkennen.", content:null },
     { title:"Garmin rMSSD Baseline", sub:"Dein normaler rMSSD-Bereich. Garmin App → HFV → 30-Tage-Übersicht.",
-      content:<div><div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end" }}>{[["Min","baselineRmssdMin","z.B. 20"],["Max","baselineRmssdMax","z.B. 40"]].map(([l,k,ph])=><div key={k}><label style={{ fontSize:"0.7rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={data[k]} placeholder={ph} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.5rem 0.7rem", width:"90px", fontFamily:"monospace", fontSize:"1rem" }}/></div>)}<span style={{ color:"#475569", fontSize:"0.8rem", paddingBottom:"0.5rem" }}>ms</span></div><div style={{ fontSize:"0.67rem", color:"#334155", marginTop:"0.6rem" }}>Unbekannt? Leer lassen, später in Einstellungen ergänzen.</div></div>},
+      content:<div><div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end" }}>{[["Min","baselineRmssdMin","z.B. 20"],["Max","baselineRmssdMax","z.B. 40"]].map(([l,k,ph])=><div key={k}><label style={{ fontSize:"0.7rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={data[k]} placeholder={ph} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.5rem 0.7rem", width:"90px", fontFamily:"monospace", fontSize:"1rem" }}/></div>)}<span style={{ color:"#94a3b8", fontSize:"0.8rem", paddingBottom:"0.5rem" }}>ms</span></div><div style={{ fontSize:"0.67rem", color:"#334155", marginTop:"0.6rem" }}>Unbekannt? Leer lassen, später in Einstellungen ergänzen.</div></div>},
     { title:"Erinnerungszeiten", sub:"Wann soll die App erinnern?",
       content:<div style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>{[["🌙 Abend","eveningTime"],["🌅 Morgen","morningTime"]].map(([l,k])=><div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}><label style={{ fontSize:"0.82rem", color:"#94a3b8" }}>{l}</label><input type="time" value={data[k]} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.7rem", fontFamily:"monospace", fontSize:"0.95rem", colorScheme:"dark" }}/></div>)}</div>},
     { title:"Fast fertig ✓", sub:"Streak-Anzeige aktivieren?",
-      content:<div style={{ display:"flex", gap:"0.7rem" }}>{[["Ja",true],["Nein",false]].map(([l,v])=><button key={l} onClick={()=>setData(d=>({...d,showStreak:v}))} style={{ flex:1, padding:"0.65rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.85rem", fontWeight:600, border:`1px solid ${data.showStreak===v?"#818cf8":"#334155"}`, background:data.showStreak===v?"#1e1b4b":"#1e293b", color:data.showStreak===v?"#818cf8":"#475569" }}>{l}</button>)}</div>},
+      content:<div style={{ display:"flex", gap:"0.7rem" }}>{[["Ja",true],["Nein",false]].map(([l,v])=><button key={l} onClick={()=>setData(d=>({...d,showStreak:v}))} style={{ flex:1, padding:"0.65rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.85rem", fontWeight:600, border:`1px solid ${data.showStreak===v?"#818cf8":"#334155"}`, background:data.showStreak===v?"#1e1b4b":"#1e293b", color:data.showStreak===v?"#818cf8":"#94a3b8" }}>{l}</button>)}</div>},
   ];
   const cur = steps[step];
   return (
@@ -661,7 +661,7 @@ function NumRow({ label, hint, skey, min, max, unit, settings, onUpdate }) {
       <div><div style={{ fontSize:"0.82rem", color:"#94a3b8" }}>{label}</div>{hint&&<div style={{ fontSize:"0.62rem", color:"#334155", marginTop:"0.1rem" }}>{hint}</div>}</div>
       <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
         <input type="number" min={min} max={max} value={settings[skey]} onChange={e=>onUpdate({[skey]:Number(e.target.value)})} style={{ width:"58px", background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.35rem 0.5rem", fontFamily:"monospace", fontSize:"0.9rem", textAlign:"center" }}/>
-        {unit&&<span style={{ fontSize:"0.72rem", color:"#475569" }}>{unit}</span>}
+        {unit&&<span style={{ fontSize:"0.72rem", color:"#94a3b8" }}>{unit}</span>}
       </div>
     </div>
   );
@@ -702,7 +702,7 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
         <div style={sLbl}>Garmin rMSSD Baseline</div>
         <div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end" }}>
           {[["Min","baselineRmssdMin"],["Max","baselineRmssdMax"]].map(([l,k])=>(<div key={k}><label style={{ fontSize:"0.68rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={s[k]} placeholder="—" onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.6rem", width:"80px", fontFamily:"monospace", fontSize:"0.9rem" }}/></div>))}
-          <span style={{ color:"#475569", fontSize:"0.78rem", paddingBottom:"0.4rem" }}>ms</span>
+          <span style={{ color:"#94a3b8", fontSize:"0.78rem", paddingBottom:"0.4rem" }}>ms</span>
         </div>
         <div style={{ fontSize:"0.65rem", color:"#334155", marginTop:"0.5rem" }}>Garmin App → HFV → 30-Tage-Übersicht</div>
       </div>
@@ -716,7 +716,7 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
       <div style={sec}>
         <div style={sLbl}>Eigene Trigger-Kategorien</div>
         <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginBottom:"0.6rem" }}>
-          {(s.customTriggers||[]).map(t=>(<div key={t} style={{ display:"flex", alignItems:"center", gap:"0.3rem", padding:"0.25rem 0.5rem 0.25rem 0.65rem", borderRadius:"20px", background:"#1e1b4b", border:"1px solid #4f46e5" }}><span style={{ fontSize:"0.68rem", color:"#818cf8" }}>{t}</span><button onClick={()=>removeTrigger(t)} style={{ background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:"0.85rem", lineHeight:1, padding:0 }}>×</button></div>))}
+          {(s.customTriggers||[]).map(t=>(<div key={t} style={{ display:"flex", alignItems:"center", gap:"0.3rem", padding:"0.25rem 0.5rem 0.25rem 0.65rem", borderRadius:"20px", background:"#1e1b4b", border:"1px solid #4f46e5" }}><span style={{ fontSize:"0.68rem", color:"#818cf8" }}>{t}</span><button onClick={()=>removeTrigger(t)} style={{ background:"none", border:"none", color:"#94a3b8", cursor:"pointer", fontSize:"0.85rem", lineHeight:1, padding:0 }}>×</button></div>))}
           {!(s.customTriggers||[]).length&&<div style={{ fontSize:"0.72rem", color:"#334155" }}>Noch keine eigenen Trigger</div>}
         </div>
         <div style={{ display:"flex", gap:"0.4rem" }}>
@@ -746,10 +746,10 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
 
       <div style={sec}>
         <div style={sLbl}>Daten</div>
-        <div style={{ fontSize:"0.78rem", color:"#475569", marginBottom:"0.8rem" }}>{entries.length} Einträge · {entries.filter(e=>e.evening&&e.morning).length} vollständig</div>
+        <div style={{ fontSize:"0.78rem", color:"#94a3b8", marginBottom:"0.8rem" }}>{entries.length} Einträge · {entries.filter(e=>e.evening&&e.morning).length} vollständig</div>
         <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem" }}>
           <button onClick={onLoadTestData} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #334155", background:"#1e293b", color:"#64748b", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem" }}>Testdaten laden (14 Tage)</button>
-          <button onClick={()=>onUpdate({setupDone:false})} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #334155", background:"none", color:"#475569", cursor:"pointer", fontFamily:"inherit", fontSize:"0.75rem" }}>Einrichtungsassistent erneut starten</button>
+          <button onClick={()=>onUpdate({setupDone:false})} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #334155", background:"none", color:"#94a3b8", cursor:"pointer", fontFamily:"inherit", fontSize:"0.75rem" }}>Einrichtungsassistent erneut starten</button>
           {!confirmDelete
             ? <button onClick={()=>setConfirmDelete(true)} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #7f1d1d", background:"none", color:"#f87171", cursor:"pointer", fontFamily:"inherit", fontSize:"0.75rem" }}>Alle Daten löschen …</button>
             : <div style={{ background:"#7f1d1d22", borderRadius:"8px", padding:"0.7rem", border:"1px solid #7f1d1d" }}>
@@ -856,7 +856,7 @@ function ImportModal({ parsed, existingDates, onImport, onClose }) {
         <div style={{ background:"#0f172a", borderRadius:"14px", border:"1px solid #1e293b" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"1rem 1.2rem 0.8rem", borderBottom:"1px solid #1e293b" }}>
             <div><div style={{ fontSize:"0.65rem", color:"#818cf8", letterSpacing:"0.12em", textTransform:"uppercase" }}>CSV Import</div><div style={{ fontSize:"0.95rem", fontWeight:600, color:"#e2e8f0" }}>{parsed.rows.length} Zeilen erkannt</div></div>
-            <button onClick={onClose} style={{ background:"none", border:"none", color:"#475569", cursor:"pointer", padding:"0.2rem" }}><X size={20}/></button>
+            <button onClick={onClose} style={{ background:"none", border:"none", color:"#94a3b8", cursor:"pointer", padding:"0.2rem" }}><X size={20}/></button>
           </div>
 
           <div style={{ padding:"1rem 1.2rem" }}>
@@ -881,12 +881,12 @@ function ImportModal({ parsed, existingDates, onImport, onClose }) {
                 <div style={{ fontSize:"0.7rem", color:"#facc15", fontWeight:600, marginBottom:"0.4rem" }}>
                   {conflicts.length} Konflikt{conflicts.length > 1 ? "e" : ""} — diese Tage sind bereits vorhanden
                 </div>
-                <div style={{ fontSize:"0.65rem", color:"#475569", marginBottom:"0.7rem" }}>
+                <div style={{ fontSize:"0.65rem", color:"#94a3b8", marginBottom:"0.7rem" }}>
                   {conflicts.slice(0, 5).map(e => e.date).join(", ")}{conflicts.length > 5 ? ` + ${conflicts.length - 5} weitere` : ""}
                 </div>
                 <div style={{ display:"flex", gap:"0.4rem" }}>
                   {[["skip","Nur neue importieren (" + fresh.length + ")"],["overwrite","Alle überschreiben (" + mapped.length + ")"]].map(([v,l]) => (
-                    <button key={v} onClick={() => setMode(v)} style={{ flex:1, padding:"0.38rem 0.3rem", borderRadius:"6px", border:`1px solid ${mode===v?"#818cf8":"#334155"}`, background:mode===v?"#1e1b4b":"#0f172a", color:mode===v?"#818cf8":"#475569", cursor:"pointer", fontFamily:"inherit", fontSize:"0.65rem", fontWeight:600 }}>{l}</button>
+                    <button key={v} onClick={() => setMode(v)} style={{ flex:1, padding:"0.38rem 0.3rem", borderRadius:"6px", border:`1px solid ${mode===v?"#818cf8":"#334155"}`, background:mode===v?"#1e1b4b":"#0f172a", color:mode===v?"#818cf8":"#94a3b8", cursor:"pointer", fontFamily:"inherit", fontSize:"0.65rem", fontWeight:600 }}>{l}</button>
                   ))}
                 </div>
               </div>
@@ -1045,7 +1045,7 @@ export default function PEMTracker() {
     todayEntry?.evening||(savedToday.evening?evening:null),
     todayEntry?.morning||(savedToday.morning?morning:null));
 
-  const panel = { background:"#0f172a", borderRadius:"14px", padding:"1.3rem 1.4rem", border:"1px solid #1e293b", marginBottom:"1rem" };
+  const panel = { background:"#0f172a", borderRadius:"14px", padding:"1.3rem 1rem", border:"1px solid #1e293b", marginBottom:"1rem" };
   const TABS  = [{key:"log",icon:<FileText size={20}/>,label:"Eingabe"},{key:"history",icon:<ClipboardList size={20}/>,label:"Verlauf"},{key:"analysis",icon:<BarChart2 size={20}/>,label:"Analyse"},{key:"settings",icon:<Settings2 size={20}/>,label:"Einstellungen"}];
 
   return (
@@ -1071,7 +1071,7 @@ export default function PEMTracker() {
       <div style={{ padding:"0.9rem 1rem" }}>
         {tab==="log"&&(<>
           <div style={{ display:"flex", gap:"0.5rem", marginBottom:"1rem" }}>
-            {[["morning",<Sunrise size={14}/>,"Morgen"],["evening",<Moon size={14}/>,"Abend"]].map(([v,icon,l])=>(<button key={v} onClick={()=>setSubTab(v)} style={{ flex:1, padding:"0.5rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.82rem", fontWeight:600, position:"relative", border:`1px solid ${subTab===v?"#818cf8":"#1e293b"}`, background:subTab===v?"#1e1b4b":"#0f172a", color:subTab===v?"#818cf8":"#475569", display:"flex", alignItems:"center", justifyContent:"center", gap:"0.35rem" }}>{icon}{l}{savedToday[v]&&<span style={{ position:"absolute", top:"4px", right:"6px", width:"6px", height:"6px", borderRadius:"50%", background:"#4ade80" }}/>}</button>))}
+            {[["morning",<Sunrise size={14}/>,"Morgen"],["evening",<Moon size={14}/>,"Abend"]].map(([v,icon,l])=>(<button key={v} onClick={()=>setSubTab(v)} style={{ flex:1, padding:"0.5rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.82rem", fontWeight:600, position:"relative", border:`1px solid ${subTab===v?"#818cf8":"#1e293b"}`, background:subTab===v?"#1e1b4b":"#0f172a", color:subTab===v?"#818cf8":"#94a3b8", display:"flex", alignItems:"center", justifyContent:"center", gap:"0.35rem" }}>{icon}{l}{savedToday[v]&&<span style={{ position:"absolute", top:"4px", right:"6px", width:"6px", height:"6px", borderRadius:"50%", background:"#4ade80" }}/>}</button>))}
           </div>
 
           {subTab==="evening"&&(<div style={panel}>
@@ -1080,8 +1080,8 @@ export default function PEMTracker() {
             <SliderField label="Schmerz" value={evening.pain} onChange={v=>setEvening(s=>({...s,pain:v}))}/>
             <SliderField label="Brainfog" value={evening.brainfog} onChange={v=>setEvening(s=>({...s,brainfog:v}))}/>
             <SliderField label="Schlafqualität letzte Nacht" value={evening.unrefreshing_sleep_prev} onChange={v=>setEvening(s=>({...s,unrefreshing_sleep_prev:v}))} hint="0 = erholsam · 10 = unerholsam"/>
-            <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.4rem" }}>Aktivitätsniveau heute</label><div style={{ display:"flex", gap:"0.35rem" }}>{ACTIVITY_LABELS.map((l,i)=><button key={i} onClick={()=>setEvening(s=>({...s,activity_today:i}))} style={{ flex:1, padding:"0.38rem 0.15rem", borderRadius:"6px", border:"none", cursor:"pointer", fontSize:"0.58rem", fontFamily:"inherit", lineHeight:1.3, background:evening.activity_today===i?"#4f46e5":"#1e293b", color:evening.activity_today===i?"#fff":"#475569" }}>{l}</button>)}</div></div>
-            <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.35rem" }}>PEM heute?</label><div style={{ display:"flex", gap:"0.5rem" }}>{[["Ja",true],["Nein",false]].map(([l,v])=><button key={l} onClick={()=>setEvening(s=>({...s,pem_today:v}))} style={{ padding:"0.38rem 1.1rem", borderRadius:"6px", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:"0.82rem", background:evening.pem_today===v?(v?"#7f1d1d":"#14532d"):"#1e293b", color:evening.pem_today===v?"#fff":"#475569" }}>{l}</button>)}</div></div>
+            <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.4rem" }}>Aktivitätsniveau heute</label><div style={{ display:"flex", gap:"0.35rem" }}>{ACTIVITY_LABELS.map((l,i)=><button key={i} onClick={()=>setEvening(s=>({...s,activity_today:i}))} style={{ flex:1, padding:"0.38rem 0.15rem", borderRadius:"6px", border:"none", cursor:"pointer", fontSize:"0.58rem", fontFamily:"inherit", lineHeight:1.3, background:evening.activity_today===i?"#4f46e5":"#1e293b", color:evening.activity_today===i?"#fff":"#94a3b8" }}>{l}</button>)}</div></div>
+            <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.35rem" }}>PEM heute?</label><div style={{ display:"flex", gap:"0.5rem" }}>{[["Ja",true],["Nein",false]].map(([l,v])=><button key={l} onClick={()=>setEvening(s=>({...s,pem_today:v}))} style={{ padding:"0.38rem 1.1rem", borderRadius:"6px", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:"0.82rem", background:evening.pem_today===v?(v?"#7f1d1d":"#14532d"):"#1e293b", color:evening.pem_today===v?"#fff":"#94a3b8" }}>{l}</button>)}</div></div>
             <TriggerChips selected={evening.triggers} onChange={triggers=>setEvening(s=>({...s,triggers}))} allTriggers={allTriggers} onAddCustom={addCustomTrigger}/>
             <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.35rem" }}>Notiz</label><textarea value={evening.notes} onChange={e=>setEvening(s=>({...s,notes:e.target.value}))} placeholder="z.B. Besuch, emotionaler Stress, Wetter…" style={{ width:"100%", background:"#1e293b", border:"1px solid #334155", borderRadius:"8px", color:"#e2e8f0", padding:"0.55rem 0.75rem", fontSize:"0.85rem", fontFamily:"inherit", minHeight:"58px" }}/></div>
             <button onClick={()=>save("evening")} style={{ width:"100%", padding:"0.72rem", borderRadius:"10px", border:"none", cursor:"pointer", background:"#4f46e5", color:"#fff", fontFamily:"inherit", fontWeight:700, fontSize:"0.9rem" }}>Abend speichern</button>
@@ -1090,7 +1090,7 @@ export default function PEMTracker() {
 
           {subTab==="morning"&&(<div style={panel}>
             <div style={{ fontSize:"0.67rem", color:"#818cf8", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:"1.1rem" }}>Morgen-Eingabe · liegend, vor dem Aufstehen</div>
-            <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.45rem" }}>Garmin HFV-Status</label><div style={{ display:"flex", gap:"0.45rem" }}>{HRV_OPTIONS.map(v=><button key={v} onClick={()=>setMorning(s=>({...s,hrv_status:v}))} style={{ flex:1, padding:"0.48rem 0.2rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.68rem", fontWeight:600, border:`1px solid ${morning.hrv_status===v?HRV_COLORS[v]:"#334155"}`, background:morning.hrv_status===v?`${HRV_COLORS[v]}22`:"#1e293b", color:morning.hrv_status===v?HRV_COLORS[v]:"#475569" }}>{HRV_LABELS[v]}</button>)}</div></div>
+            <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.45rem" }}>Garmin HFV-Status</label><div style={{ display:"flex", gap:"0.45rem" }}>{HRV_OPTIONS.map(v=><button key={v} onClick={()=>setMorning(s=>({...s,hrv_status:v}))} style={{ flex:1, padding:"0.48rem 0.2rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.68rem", fontWeight:600, border:`1px solid ${morning.hrv_status===v?HRV_COLORS[v]:"#334155"}`, background:morning.hrv_status===v?`${HRV_COLORS[v]}22`:"#1e293b", color:morning.hrv_status===v?HRV_COLORS[v]:"#94a3b8" }}>{HRV_LABELS[v]}</button>)}</div></div>
             <NumberField label="rMSSD (Garmin)" value={morning.rmssd_garmin} onChange={v=>setMorning(s=>({...s,rmssd_garmin:v}))} unit="ms" placeholder="z.B. 28"/>
             <NumberField label="Morgenpuls (liegend)" value={morning.morning_hr} onChange={v=>setMorning(s=>({...s,morning_hr:v}))} unit="bpm" placeholder="z.B. 58"/>
             <NumberField label="Atemfrequenz" value={morning.breath_rate} onChange={v=>setMorning(s=>({...s,breath_rate:v}))} unit="/min" placeholder="z.B. 16"/>
@@ -1098,7 +1098,7 @@ export default function PEMTracker() {
             <div style={{ marginBottom:"1.2rem", padding:"0.85rem 1rem", background:"#1e293b", borderRadius:"10px", border:"1px solid #334155" }}>
               <div style={{ fontSize:"0.7rem", color:"#818cf8", fontWeight:600, marginBottom:"0.25rem" }}>War gestern ein PEM-Tag?</div>
               <div style={{ fontSize:"0.68rem", color:"#64748b", marginBottom:"0.55rem" }}>Deine Antwort kalibriert die persönliche Risikoschwelle.</div>
-              <div style={{ display:"flex", gap:"0.45rem" }}>{[["Ja — PEM",true],["Nein",false],["Unsicher",null]].map(([l,v])=><button key={l} onClick={()=>setMorning(s=>({...s,pem_confirmed:v}))} style={{ flex:1, padding:"0.38rem 0.25rem", borderRadius:"6px", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:"0.68rem", fontWeight:600, background:morning.pem_confirmed===v?(v===true?"#7f1d1d":v===false?"#14532d":"#334155"):"#0f172a", color:morning.pem_confirmed===v?"#fff":"#475569" }}>{l}</button>)}</div>
+              <div style={{ display:"flex", gap:"0.45rem" }}>{[["Ja — PEM",true],["Nein",false],["Unsicher",null]].map(([l,v])=><button key={l} onClick={()=>setMorning(s=>({...s,pem_confirmed:v}))} style={{ flex:1, padding:"0.38rem 0.25rem", borderRadius:"6px", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:"0.68rem", fontWeight:600, background:morning.pem_confirmed===v?(v===true?"#7f1d1d":v===false?"#14532d":"#334155"):"#0f172a", color:morning.pem_confirmed===v?"#fff":"#94a3b8" }}>{l}</button>)}</div>
             </div>
             <div style={{ marginBottom:"1.2rem" }}><label style={{ fontSize:"0.78rem", color:"#94a3b8", letterSpacing:"0.08em", textTransform:"uppercase", display:"block", marginBottom:"0.35rem" }}>Notiz</label><textarea value={morning.notes} onChange={e=>setMorning(s=>({...s,notes:e.target.value}))} placeholder="z.B. RLS-Nacht, früh aufgewacht…" style={{ width:"100%", background:"#1e293b", border:"1px solid #334155", borderRadius:"8px", color:"#e2e8f0", padding:"0.55rem 0.75rem", fontSize:"0.85rem", fontFamily:"inherit", minHeight:"58px" }}/></div>
             <button onClick={()=>save("morning")} style={{ width:"100%", padding:"0.72rem", borderRadius:"10px", border:"none", cursor:"pointer", background:"#6d28d9", color:"#fff", fontFamily:"inherit", fontWeight:700, fontSize:"0.9rem" }}>Morgen speichern</button>
@@ -1145,7 +1145,7 @@ export default function PEMTracker() {
       </div>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:"480px", background:"#0f172a", borderTop:"1px solid #1e293b", display:"flex", padding:"0.45rem 0 0.7rem", zIndex:20 }}>
-        {TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{ flex:1, background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:"0.15rem", padding:"0.25rem 0", color:tab===t.key?"#818cf8":"#334155" }}>{t.icon}<span style={{ fontSize:"0.58rem", fontFamily:"inherit", fontWeight:tab===t.key?600:400 }}>{t.label}</span></button>))}
+        {TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{ flex:1, background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:"0.15rem", padding:"0.25rem 0", color:tab===t.key?"#818cf8":"#64748b" }}>{t.icon}<span style={{ fontSize:"0.58rem", fontFamily:"inherit", fontWeight:tab===t.key?600:400 }}>{t.label}</span></button>))}
       </div>
     </div>
   );
