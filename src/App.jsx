@@ -260,6 +260,17 @@ function getTrend14Days(entries, settings) {
   });
 }
 
+function downloadCSV(entries) {
+  const csv = buildCSV(entries);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `pem-tracker-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function buildCSV(entries) {
   const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const h = ["Datum","Ab_Fatigue","Ab_Schmerz","Ab_Brainfog","Ab_Schlaf","Ab_PEM_heute","Ab_Aktivitaet","Ab_Trigger","Ab_Notiz","Mo_rMSSD","Mo_HFV","Mo_Puls","Mo_Atemfreq","Mo_Sym_Aufwachen","Mo_PEM_bestaetigt","Mo_Notiz","PEM_Score"];
@@ -429,7 +440,7 @@ function CalibrationPanel({ entries, settings }) {
   );
 }
 
-function CorrelationBlock({ title, subtitle, data, barType = "delta" }) {
+function CorrelationBlock({ title, subtitle, data }) {
   if (!data || !data.length) return null;
   const maxAbs = Math.max(...data.map(c => Math.abs(c.delta)));
   return (
@@ -635,6 +646,18 @@ function OnboardingModal({ onComplete }) {
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
+function NumRow({ label, hint, skey, min, max, unit, settings, onUpdate }) {
+  return (
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.7rem" }}>
+      <div><div style={{ fontSize:"0.82rem", color:"#94a3b8" }}>{label}</div>{hint&&<div style={{ fontSize:"0.62rem", color:"#334155", marginTop:"0.1rem" }}>{hint}</div>}</div>
+      <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
+        <input type="number" min={min} max={max} value={settings[skey]} onChange={e=>onUpdate({[skey]:Number(e.target.value)})} style={{ width:"58px", background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.35rem 0.5rem", fontFamily:"monospace", fontSize:"0.9rem", textAlign:"center" }}/>
+        {unit&&<span style={{ fontSize:"0.72rem", color:"#475569" }}>{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
 function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTriggers, onDeleteAll }) {
   const [notifStatus,    setNotifStatus]    = useState(null);
   const [newTrigger,     setNewTrigger]     = useState("");
@@ -652,16 +675,6 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
   const sec  = { background:"#0f172a", borderRadius:"12px", padding:"1rem 1.2rem", border:"1px solid #1e293b", marginBottom:"0.8rem" };
   const sLbl = { fontSize:"0.68rem", color:"#818cf8", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:"0.8rem" };
 
-  const NumRow = ({label, hint, skey, min, max, unit}) => (
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.7rem" }}>
-      <div><div style={{ fontSize:"0.82rem", color:"#94a3b8" }}>{label}</div>{hint&&<div style={{ fontSize:"0.62rem", color:"#334155", marginTop:"0.1rem" }}>{hint}</div>}</div>
-      <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
-        <input type="number" min={min} max={max} value={s[skey]} onChange={e=>onUpdate({[skey]:Number(e.target.value)})} style={{ width:"58px", background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.35rem 0.5rem", fontFamily:"monospace", fontSize:"0.9rem", textAlign:"center" }}/>
-        {unit&&<span style={{ fontSize:"0.72rem", color:"#475569" }}>{unit}</span>}
-      </div>
-    </div>
-  );
-
   return (
     <div>
       <div style={sec}>
@@ -675,8 +688,8 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
 
       <div style={sec}>
         <div style={sLbl}>Algorithmus-Parameter</div>
-        <NumRow label="Zeitverzögerungs-Fenster" hint="Vortage im Risiko-Score + Lag für Trigger-Analyse" skey="rollingDays" min={0} max={7} unit="Tage"/>
-        <NumRow label="Kalibrierungsfenster" hint="Bei Zustandsveränderung verkleinern" skey="calibrationDays" min={14} max={365} unit="Tage"/>
+        <NumRow label="Zeitverzögerungs-Fenster" hint="Vortage im Risiko-Score + Lag für Trigger-Analyse" skey="rollingDays" min={0} max={7} unit="Tage" settings={s} onUpdate={onUpdate}/>
+        <NumRow label="Kalibrierungsfenster" hint="Bei Zustandsveränderung verkleinern" skey="calibrationDays" min={14} max={365} unit="Tage" settings={s} onUpdate={onUpdate}/>
       </div>
 
       <div style={sec}>
@@ -733,33 +746,56 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+function loadFromStorage(key, fallback) {
+  try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch { return fallback; }
+}
+
+let _nextId = Date.now();
+function nextId() { return _nextId++; }
+
+// ─── Notification Scheduling ──────────────────────────────────────────────────
+
+let _reminderTimers = [];
+
+function scheduleReminders(settings) {
+  _reminderTimers.forEach(clearTimeout);
+  _reminderTimers = [];
+  if (!settings.notificationsEnabled || !("Notification" in window) || Notification.permission !== "granted") return;
+
+  const plan = (timeStr, title, body) => {
+    const [h, m] = timeStr.split(":").map(Number);
+    const target = new Date();
+    target.setHours(h, m, 0, 0);
+    if (target <= new Date()) target.setDate(target.getDate() + 1);
+    const id = setTimeout(() => {
+      new Notification(title, { body, icon: "/favicon.svg" });
+      scheduleReminders(settings);
+    }, target - new Date());
+    _reminderTimers.push(id);
+  };
+
+  plan(settings.eveningTime || "20:00", "PEM-Tracker: Abend", "Zeit für dein Abend-Protokoll.");
+  plan(settings.morningTime || "07:30", "PEM-Tracker: Morgen", "HFV-Werte eintragen, bevor du aufstehst.");
+}
+
 export default function PEMTracker() {
-  const [entries,        setEntries]        = useState([]);
-  const [settings,       setSettings]       = useState({...DEFAULT_SETTINGS});
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [entries,        setEntries]        = useState(() => loadFromStorage(STORAGE_KEY, []));
+  const [settings,       setSettings]       = useState(() => ({ ...DEFAULT_SETTINGS, ...loadFromStorage(SETTINGS_KEY, {}) }));
+  const [showOnboarding, setShowOnboarding] = useState(() => { const s = loadFromStorage(SETTINGS_KEY, null); return !s || !s.setupDone; });
   const [editEntry,      setEditEntry]      = useState(null);
   const [tab,            setTab]            = useState("log");
   const [subTab,         setSubTab]         = useState("evening");
-  const [showCSV,        setShowCSV]        = useState(false);
   const [evening,        setEvening]        = useState({...DEFAULT_EVENING});
   const [morning,        setMorning]        = useState({...DEFAULT_MORNING});
   const [savedToday,     setSavedToday]     = useState({evening:false,morning:false});
 
+  useEffect(() => { scheduleReminders(settings); }, [settings]);
+
   const today       = mkDateStr(new Date());
   const allTriggers = [...BUILTIN_TRIGGERS, ...(settings.customTriggers||[])];
 
-  useEffect(()=>{
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setEntries(JSON.parse(raw));
-      const rs = localStorage.getItem(SETTINGS_KEY);
-      if (rs) { const s=JSON.parse(rs); setSettings({...DEFAULT_SETTINGS,...s}); if(!s.setupDone) setShowOnboarding(true); }
-      else setShowOnboarding(true);
-    } catch { setShowOnboarding(true); }
-  },[]);
-
-  const persist        = u => { setEntries(u); try{localStorage.setItem(STORAGE_KEY,JSON.stringify(u));}catch{} };
-  const updateSettings = p => { const n={...settings,...p}; setSettings(n); try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(n));}catch{} };
+  const persist        = u => { setEntries(u); try{localStorage.setItem(STORAGE_KEY,JSON.stringify(u));}catch{ void 0; } };
+  const updateSettings = p => { const n={...settings,...p}; setSettings(n); try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(n));}catch{ void 0; } };
   const completeOnboarding = d => { updateSettings({...d,setupDone:true}); setShowOnboarding(false); };
   const deleteAll      = () => { persist([]); setSavedToday({evening:false,morning:false}); setEvening({...DEFAULT_EVENING}); setMorning({...DEFAULT_MORNING}); };
 
@@ -768,7 +804,7 @@ export default function PEMTracker() {
     const idx=updated.findIndex(e=>e.date===today);
     const data=key==="evening"?{...evening}:{...morning};
     if(idx>=0) updated[idx][key]=data;
-    else { const e={id:Date.now(),date:today}; e[key]=data; updated.unshift(e); }
+    else { const e={id:nextId(),date:today}; e[key]=data; updated.unshift(e); }
     persist(updated);
     setSavedToday(s=>({...s,[key]:true}));
   };
@@ -852,13 +888,9 @@ export default function PEMTracker() {
         {tab==="history"&&(<div>
           {settings.showStreak&&<StreakBanner streak={streak}/>}
           {entries.length>0&&(<div style={{ marginBottom:"1rem" }}>
-            <button onClick={()=>setShowCSV(s=>!s)} style={{ width:"100%", padding:"0.6rem", borderRadius:"10px", border:"1px solid #334155", cursor:"pointer", fontFamily:"inherit", fontWeight:600, fontSize:"0.82rem", background:"#0f172a", color:"#94a3b8", display:"flex", alignItems:"center", justifyContent:"center", gap:"0.5rem" }}>
-              ⬇ CSV-Export ({entries.length} Einträge) {showCSV?"▲":"▼"}
+            <button onClick={()=>downloadCSV(entries)} style={{ width:"100%", padding:"0.6rem", borderRadius:"10px", border:"1px solid #334155", cursor:"pointer", fontFamily:"inherit", fontWeight:600, fontSize:"0.82rem", background:"#0f172a", color:"#94a3b8", display:"flex", alignItems:"center", justifyContent:"center", gap:"0.5rem" }}>
+              ⬇ CSV-Export ({entries.length} Einträge)
             </button>
-            {showCSV&&(<div style={{ marginTop:"0.7rem", background:"#0f172a", borderRadius:"10px", border:"1px solid #334155", padding:"0.9rem" }}>
-              <div style={{ fontSize:"0.7rem", color:"#64748b", marginBottom:"0.5rem" }}>Alles markieren → kopieren → als .csv speichern</div>
-              <textarea readOnly value={buildCSV(entries)} onClick={e=>e.target.select()} style={{ width:"100%", height:"110px", background:"#1e293b", border:"1px solid #334155", borderRadius:"8px", color:"#64748b", padding:"0.5rem", fontSize:"0.62rem", fontFamily:"monospace" }}/>
-            </div>)}
           </div>)}
           {entries.length===0
             ?<div style={{ textAlign:"center", color:"#334155", padding:"3rem 1rem" }}><div style={{ fontSize:"2rem", marginBottom:"0.5rem" }}>📋</div>Noch keine Einträge<br/><button onClick={loadTestData} style={{ marginTop:"1rem", padding:"0.5rem 1rem", borderRadius:"8px", border:"1px solid #334155", background:"#1e293b", color:"#64748b", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem" }}>Testdaten laden</button></div>
