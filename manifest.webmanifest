@@ -1,0 +1,1 @@
+{"name":"PEM-Tracker","short_name":"PEM-Tracker","description":"PEM-Vorhersage für ME/CFS-Patienten","start_url":"/pem-tracker/","display":"standalone","background_color":"#020617","theme_color":"#020617","lang":"en","scope":"/pem-tracker/","orientation":"portrait","icons":[{"src":"favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

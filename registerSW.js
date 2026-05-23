@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/pem-tracker/sw.js', { scope: '/pem-tracker/' })})}
