@@ -1027,7 +1027,8 @@ function ImportModal({ parsed, existingDates, onImport, onClose }) {
 
 // ─── Push Notifications ───────────────────────────────────────────────────────
 
-const PUSH_SERVER_URL = import.meta.env.VITE_PUSH_SERVER_URL || "";
+const PUSH_SERVER_URL = import.meta.env.VITE_PUSH_SERVER_URL || "https://pem-tracker-api.bengiese.workers.dev";
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "BNy5QBRWy_-iMUF1-ARe4lyhMxJIr6jeB-hVoFdrIzEEe3Gf67vHizBM57_IUjXHrYm_sn2XRKEIbZoWaeDAbOg";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -1051,7 +1052,7 @@ async function subscribeToPush({ morningTime, eveningTime }) {
   if (!sub) {
     sub = await sw.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
   }
   await fetch(`${PUSH_SERVER_URL}/api/subscribe`, {
