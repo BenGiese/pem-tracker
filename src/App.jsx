@@ -22,6 +22,7 @@ const BUILTIN_TRIGGERS = [
 const DEFAULT_SETTINGS = {
   setupDone: false,
   baselineRmssdMin: "", baselineRmssdMax: "",
+  baselineHrMin: "",  baselineHrMax: "",
   eveningTime: "20:00", morningTime: "07:30",
   showStreak: true, notificationsEnabled: false,
   customTriggers: [],
@@ -63,25 +64,50 @@ function shiftDate(str, days) {
 
 // ─── Risk Calculation ─────────────────────────────────────────────────────────
 
+// Putrino et al. npj Digital Medicine 2026:
+// morning biometrics (HR + HRV) dominate prediction (AUC 0.82–0.85)
 function computeBaseRisk(eve, morn, settings = {}) {
   if (!eve && !morn) return null;
   let eveScore = null, mornScore = null;
-  if (eve) {
-    const symAvg = ((eve.fatigue || 0) + (eve.pain || 0) + (eve.brainfog || 0)) / 3;
-    eveScore = symAvg * 0.40 + (eve.unrefreshing_sleep_prev || 0) * 0.15
-      + ((eve.activity_today || 0) / 4) * 10 * 0.20
-      + (eve.pem_today ? 10 : 0) * 0.25;
-  }
+
   if (morn) {
+    // HR vs. baseline (25%) — elevated resting HR = risk
+    const hrNum = parseFloat(morn.morning_hr);
+    const hrMin = parseFloat(settings.baselineHrMin);
+    const hrMax = parseFloat(settings.baselineHrMax);
+    let hrS = 5; // neutral when no baseline configured
+    if (!isNaN(hrNum) && !isNaN(hrMin) && !isNaN(hrMax) && hrMin > 0) {
+      hrS = hrNum < hrMin ? 2 : hrNum > hrMax ? 8 : 4;
+    }
+
+    // HFV-Status (30%) — low HRV = high risk
     const hrv = morn.hrv_status === "low" ? 10 : morn.hrv_status === "unbalanced" ? 6 : 2;
+
+    // rMSSD vs. baseline (25%) — below baseline = risk
     let rmssdS = 5;
-    const r = parseFloat(morn.rmssd_garmin), bMin = parseFloat(settings.baselineRmssdMin), bMax = parseFloat(settings.baselineRmssdMax);
+    const r = parseFloat(morn.rmssd_garmin);
+    const bMin = parseFloat(settings.baselineRmssdMin);
+    const bMax = parseFloat(settings.baselineRmssdMax);
     if (!isNaN(r) && !isNaN(bMin) && !isNaN(bMax) && bMin > 0) {
       rmssdS = r < bMin ? Math.min(10, 5 + ((bMin - r) / bMin) * 10) : r > bMax ? 2 : 5;
     }
-    mornScore = (morn.symptom_on_waking || 0) * 0.50 + hrv * 0.30 + rmssdS * 0.20;
+
+    // Symptom on waking (20%)
+    const symWake = morn.symptom_on_waking || 0;
+
+    mornScore = hrS * 0.25 + hrv * 0.30 + rmssdS * 0.25 + symWake * 0.20;
   }
-  if (eveScore !== null && mornScore !== null) return eveScore * 0.40 + mornScore * 0.60;
+
+  if (eve) {
+    // avg fatigue/pain/brainfog (50%), sleep quality (25%), activity scaled 0–10 (25%)
+    // pem_today excluded — describes current state, not a predictor
+    const symAvg = ((eve.fatigue || 0) + (eve.pain || 0) + (eve.brainfog || 0)) / 3;
+    const actS   = ((eve.activity_today || 0) / 4) * 10;
+    eveScore = symAvg * 0.50 + (eve.unrefreshing_sleep_prev || 0) * 0.25 + actS * 0.25;
+  }
+
+  // Morgen dominiert (65%), Abend ist ergänzender Kontext (35%)
+  if (eveScore !== null && mornScore !== null) return eveScore * 0.35 + mornScore * 0.65;
   return eveScore ?? mornScore;
 }
 
@@ -704,11 +730,26 @@ function EditModal({ entry, onSave, onClose, allTriggers, onAddCustomTrigger }) 
 
 function OnboardingModal({ onComplete }) {
   const [step, setStep] = useState(0);
-  const [data, setData] = useState({ baselineRmssdMin:"", baselineRmssdMax:"", eveningTime:"20:00", morningTime:"07:30", showStreak:true });
+  const [data, setData] = useState({ baselineRmssdMin:"", baselineRmssdMax:"", baselineHrMin:"", baselineHrMax:"", eveningTime:"20:00", morningTime:"07:30", showStreak:true });
+  const inp = { background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.5rem 0.7rem", width:"80px", fontFamily:"monospace", fontSize:"1rem" };
   const steps = [
     { title:"Willkommen 👋", sub:"Dieses Tool hilft dir, PEM-Episoden vorherzusagen und persönliche Auslöser zu erkennen.", content:null },
-    { title:"Garmin rMSSD Baseline", sub:"Dein normaler rMSSD-Bereich. Garmin App → HFV → 30-Tage-Übersicht.",
-      content:<div><div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end" }}>{[["Min","baselineRmssdMin","z.B. 20"],["Max","baselineRmssdMax","z.B. 40"]].map(([l,k,ph])=><div key={k}><label style={{ fontSize:"0.7rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={data[k]} placeholder={ph} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.5rem 0.7rem", width:"90px", fontFamily:"monospace", fontSize:"1rem" }}/></div>)}<span style={{ color:"#94a3b8", fontSize:"0.8rem", paddingBottom:"0.5rem" }}>ms</span></div><div style={{ fontSize:"0.67rem", color:"#64748b", marginTop:"0.6rem" }}>Unbekannt? Leer lassen, später in Einstellungen ergänzen.</div></div>},
+    { title:"Garmin Baseline", sub:"Dein normaler rMSSD- und Morgenpuls-Bereich.",
+      content:<div>
+        <div style={{ fontSize:"0.68rem", color:"#818cf8", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:"0.5rem" }}>rMSSD</div>
+        <div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end", marginBottom:"0.6rem" }}>
+          {[["Min","baselineRmssdMin","z.B. 20"],["Max","baselineRmssdMax","z.B. 40"]].map(([l,k,ph])=><div key={k}><label style={{ fontSize:"0.7rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={data[k]} placeholder={ph} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={inp}/></div>)}
+          <span style={{ color:"#94a3b8", fontSize:"0.8rem", paddingBottom:"0.5rem" }}>ms</span>
+        </div>
+        <div style={{ fontSize:"0.65rem", color:"#64748b", marginBottom:"1rem" }}>Garmin App → HFV → 30-Tage-Übersicht</div>
+        <div style={{ fontSize:"0.68rem", color:"#818cf8", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:"0.5rem" }}>Morgenpuls</div>
+        <div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end", marginBottom:"0.6rem" }}>
+          {[["Min","baselineHrMin","z.B. 55"],["Max","baselineHrMax","z.B. 70"]].map(([l,k,ph])=><div key={k}><label style={{ fontSize:"0.7rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={data[k]} placeholder={ph} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={inp}/></div>)}
+          <span style={{ color:"#94a3b8", fontSize:"0.8rem", paddingBottom:"0.5rem" }}>bpm</span>
+        </div>
+        <div style={{ fontSize:"0.65rem", color:"#64748b" }}>Garmin Connect → Schlaf → Ruheherzfrequenz → 30-Tage-Übersicht</div>
+        <div style={{ fontSize:"0.65rem", color:"#64748b", marginTop:"0.5rem" }}>Unbekannt? Leer lassen, später in Einstellungen ergänzen.</div>
+      </div>},
     { title:"Erinnerungszeiten", sub:"Wann soll die App erinnern?",
       content:<div style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>{[["🌙 Abend","eveningTime"],["🌅 Morgen","morningTime"]].map(([l,k])=><div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}><label style={{ fontSize:"0.82rem", color:"#94a3b8" }}>{l}</label><input type="time" value={data[k]} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.7rem", fontFamily:"monospace", fontSize:"0.95rem", colorScheme:"dark" }}/></div>)}</div>},
     { title:"Fast fertig ✓", sub:"Streak-Anzeige aktivieren?",
@@ -783,6 +824,15 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
           <span style={{ color:"#94a3b8", fontSize:"0.78rem", paddingBottom:"0.4rem" }}>ms</span>
         </div>
         <div style={{ fontSize:"0.65rem", color:"#64748b", marginTop:"0.5rem" }}>Garmin App → HFV → 30-Tage-Übersicht</div>
+      </div>
+
+      <div style={sec}>
+        <div style={sLbl}>Morgenpuls Baseline</div>
+        <div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end" }}>
+          {[["Min","baselineHrMin"],["Max","baselineHrMax"]].map(([l,k])=>(<div key={k}><label style={{ fontSize:"0.68rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={s[k]} placeholder="—" onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.6rem", width:"80px", fontFamily:"monospace", fontSize:"0.9rem" }}/></div>))}
+          <span style={{ color:"#94a3b8", fontSize:"0.78rem", paddingBottom:"0.4rem" }}>bpm</span>
+        </div>
+        <div style={{ fontSize:"0.65rem", color:"#64748b", marginTop:"0.5rem" }}>Garmin Connect → Schlaf → Ruheherzfrequenz → 30-Tage-Übersicht</div>
       </div>
 
       <div style={sec}>
