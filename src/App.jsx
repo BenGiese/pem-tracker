@@ -254,16 +254,35 @@ function computeStreak(entries) {
   return { current: streak, total: entries.length, complete: entries.filter(e => e.evening && e.morning).length };
 }
 
-function getTrend14Days(entries, settings) {
+function getTrendData(entries, settings, days) {
   const today = new Date();
-  return Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(today); d.setDate(d.getDate() - (13 - i));
+  if (days === 365) {
+    return Array.from({ length: 52 }, (_, wi) => {
+      const weekEnd = new Date(today);
+      weekEnd.setDate(weekEnd.getDate() - (51 - wi) * 7);
+      const scores = [], pems = [];
+      for (let d = 6; d >= 0; d--) {
+        const date = new Date(weekEnd); date.setDate(date.getDate() - d);
+        const ds = mkDateStr(date);
+        const s = computeDayRisk(entries, ds, settings);
+        if (s !== null) scores.push(s);
+        pems.push(entries.find(e => e.date === ds)?.morning?.pem_confirmed === true);
+      }
+      return {
+        date: weekEnd.toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit" }),
+        score: scores.length ? +(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : null,
+        pem: pems.some(Boolean),
+      };
+    });
+  }
+  return Array.from({ length: days }, (_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() - (days - 1 - i));
     const ds = mkDateStr(d);
     const entry = entries.find(e => e.date === ds);
     return {
-      date:  d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }),
+      date: d.toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit" }),
       score: computeDayRisk(entries, ds, settings),
-      pem:   entry?.morning?.pem_confirmed === true,
+      pem: entry?.morning?.pem_confirmed === true,
     };
   });
 }
@@ -396,24 +415,83 @@ function TriggerChips({ selected, onChange, allTriggers, onAddCustom }) {
 // ─── Trend Chart ──────────────────────────────────────────────────────────────
 
 function TrendChart({ data, threshold }) {
-  const W = 320, H = 110, P = { t:8, r:8, b:22, l:22 };
+  const [tip, setTip] = useState(null);
+  const W = 320, H = 120, P = { t:8, r:8, b:22, l:22 };
   const iW = W-P.l-P.r, iH = H-P.t-P.b;
-  const xOf = i => (i/(data.length-1))*iW, yOf = v => iH-(v/10)*iH;
+  const xOf = i => data.length > 1 ? (i/(data.length-1))*iW : iW/2;
+  const yOf = v => iH-(v/10)*iH;
+
   if (data.filter(d=>d.score!==null).length < 2)
-    return <div style={{ height:`${H}px`, display:"flex", alignItems:"center", justifyContent:"center", color:"#334155", fontSize:"0.78rem" }}>Noch zu wenig Daten</div>;
+    return <div style={{ height:`${H}px`, display:"flex", alignItems:"center", justifyContent:"center", color:"#64748b", fontSize:"0.78rem" }}>Noch zu wenig Daten</div>;
+
   let pathD = "";
   data.forEach((d,i) => {
     if (d.score===null) return;
     pathD += `${!pathD||data[i-1]?.score===null?"M":"L"}${xOf(i).toFixed(1)} ${yOf(d.score).toFixed(1)} `;
   });
+
+  const labelStep = data.length <= 14 ? 2 : data.length <= 30 ? 5 : 8;
+
+  const handlePointerMove = e => {
+    const svg = e.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const rawX = (e.clientX - rect.left) / rect.width * W - P.l;
+    const step = iW / (data.length - 1);
+    const idx = Math.max(0, Math.min(data.length - 1, Math.round(rawX / step)));
+    setTip(idx);
+  };
+
+  const tipD = tip !== null ? data[tip] : null;
+  const tipX = tip !== null ? xOf(tip) : 0;
+  const tipY = tipD?.score !== null && tipD?.score !== undefined ? yOf(tipD.score) : 0;
+  const tipRight = tipX > iW * 0.6;
+  const tipBoxW = 72, tipBoxH = 34;
+  const tipBoxX = tipRight ? tipX - tipBoxW - 6 : tipX + 6;
+  const tipBoxY = Math.max(0, tipY - tipBoxH / 2);
+
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow:"visible", display:"block" }}>
+    <svg
+      width="100%" viewBox={`0 0 ${W} ${H}`}
+      style={{ overflow:"visible", display:"block", cursor:"crosshair", touchAction:"none" }}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={() => setTip(null)}
+    >
       <g transform={`translate(${P.l},${P.t})`}>
-        {[0,3,6,10].map(v => (<g key={v}><line x1={0} x2={iW} y1={yOf(v)} y2={yOf(v)} stroke="#1e293b" strokeWidth={1}/><text x={-4} y={yOf(v)+3} textAnchor="end" fontSize={7} fill="#334155">{v}</text></g>))}
+        {[0,3,6,10].map(v => (
+          <g key={v}>
+            <line x1={0} x2={iW} y1={yOf(v)} y2={yOf(v)} stroke="#1e293b" strokeWidth={1}/>
+            <text x={-4} y={yOf(v)+3} textAnchor="end" fontSize={7} fill="#334155">{v}</text>
+          </g>
+        ))}
         {threshold && <line x1={0} x2={iW} y1={yOf(threshold)} y2={yOf(threshold)} stroke="#6366f1" strokeWidth={1} strokeDasharray="4,3" opacity={0.7}/>}
         <path d={pathD} fill="none" stroke="#4f46e5" strokeWidth={2} strokeLinejoin="round"/>
-        {data.map((d,i) => { if(d.score===null) return null; const c=d.pem?"#f87171":d.score<=3?"#4ade80":d.score<=6?"#facc15":"#f87171"; return (<g key={i}>{d.pem&&<circle cx={xOf(i)} cy={yOf(d.score)} r={8} fill="none" stroke="#f87171" strokeWidth={1} opacity={0.35}/>}<circle cx={xOf(i)} cy={yOf(d.score)} r={d.pem?5:3.5} fill={c} stroke="#020617" strokeWidth={1.5}/></g>); })}
-        {data.filter((_,i)=>i%2===0).map((d,idx)=><text key={idx} x={xOf(idx*2)} y={iH+14} textAnchor="middle" fontSize={7} fill="#334155">{d.date}</text>)}
+        {data.map((d,i) => {
+          if (d.score===null) return null;
+          const c = d.pem?"#f87171":d.score<=3?"#4ade80":d.score<=6?"#facc15":"#f87171";
+          const active = tip === i;
+          return (
+            <g key={i}>
+              {d.pem && <circle cx={xOf(i)} cy={yOf(d.score)} r={8} fill="none" stroke="#f87171" strokeWidth={1} opacity={0.35}/>}
+              <circle cx={xOf(i)} cy={yOf(d.score)} r={active ? 6 : (d.pem ? 5 : 3.5)} fill={c} stroke="#020617" strokeWidth={1.5}/>
+            </g>
+          );
+        })}
+        {data.map((d,i) => i % labelStep === 0
+          ? <text key={i} x={xOf(i)} y={iH+14} textAnchor="middle" fontSize={7} fill="#334155">{d.date}</text>
+          : null
+        )}
+        {tip !== null && tipD?.score !== null && tipD?.score !== undefined && (
+          <g>
+            <line x1={tipX} x2={tipX} y1={0} y2={iH} stroke="#475569" strokeWidth={1} strokeDasharray="3,2"/>
+            <rect x={tipBoxX} y={tipBoxY} width={tipBoxW} height={tipBoxH} rx={5} fill="#1e293b" stroke="#334155" strokeWidth={1}/>
+            <text x={tipBoxX+6} y={tipBoxY+13} fontSize={8} fill="#94a3b8">{tipD.date}</text>
+            <text x={tipBoxX+6} y={tipBoxY+25} fontSize={10} fontWeight="bold"
+              fill={tipD.score<=3?"#4ade80":tipD.score<=6?"#facc15":"#f87171"}>
+              Score: {tipD.score}
+            </text>
+            {tipD.pem && <text x={tipBoxX+tipBoxW-6} y={tipBoxY+25} textAnchor="end" fontSize={8} fill="#f87171">PEM</text>}
+          </g>
+        )}
       </g>
     </svg>
   );
@@ -454,7 +532,7 @@ function CorrelationBlock({ title, subtitle, data }) {
   return (
     <div style={{ background:"#0f172a", borderRadius:"12px", padding:"1rem 1.2rem", border:"1px solid #1e293b" }}>
       <div style={{ fontSize:"0.68rem", color:"#818cf8", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:"0.25rem" }}>{title}</div>
-      <div style={{ fontSize:"0.65rem", color:"#334155", marginBottom:"0.8rem" }}>{subtitle}</div>
+      <div style={{ fontSize:"0.65rem", color:"#64748b", marginBottom:"0.8rem" }}>{subtitle}</div>
       {data.map(c => {
         const color = c.sig==="high"?"#f87171":c.sig==="med"?"#facc15":"#94a3b8";
         const isPct = c.pemRate !== undefined;
@@ -550,7 +628,7 @@ function EntryCard({ entry, onDelete, onEdit, entries, settings }) {
           </div>
           <div style={{ display:"flex", gap:"0.4rem", alignItems:"center" }}>
             {score!==null&&<div style={{ padding:"0.18rem 0.5rem", borderRadius:"20px", fontSize:"0.68rem", fontWeight:700, background:score<=3?"#16a34a22":score<=6?"#ca8a0422":"#dc262622", color:score<=3?"#4ade80":score<=6?"#facc15":"#f87171" }}>{score}/10</div>}
-            <span style={{ color:"#334155" }}>{expanded?<ChevronUp size={16}/>:<ChevronDown size={16}/>}</span>
+            <span style={{ color:"#64748b" }}>{expanded?<ChevronUp size={16}/>:<ChevronDown size={16}/>}</span>
           </div>
         </div>
         {ev&&(<div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"0.4rem", marginTop:"0.5rem" }}>{[["Fatigue",ev.fatigue],["Schmerz",ev.pain],["Brainfog",ev.brainfog]].map(([l,v])=>(<div key={l}><div style={{ fontSize:"0.6rem", color:"#64748b", marginBottom:"0.15rem" }}>{l}: {v}</div><ScoreBar value={v}/></div>))}</div>)}
@@ -630,7 +708,7 @@ function OnboardingModal({ onComplete }) {
   const steps = [
     { title:"Willkommen 👋", sub:"Dieses Tool hilft dir, PEM-Episoden vorherzusagen und persönliche Auslöser zu erkennen.", content:null },
     { title:"Garmin rMSSD Baseline", sub:"Dein normaler rMSSD-Bereich. Garmin App → HFV → 30-Tage-Übersicht.",
-      content:<div><div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end" }}>{[["Min","baselineRmssdMin","z.B. 20"],["Max","baselineRmssdMax","z.B. 40"]].map(([l,k,ph])=><div key={k}><label style={{ fontSize:"0.7rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={data[k]} placeholder={ph} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.5rem 0.7rem", width:"90px", fontFamily:"monospace", fontSize:"1rem" }}/></div>)}<span style={{ color:"#94a3b8", fontSize:"0.8rem", paddingBottom:"0.5rem" }}>ms</span></div><div style={{ fontSize:"0.67rem", color:"#334155", marginTop:"0.6rem" }}>Unbekannt? Leer lassen, später in Einstellungen ergänzen.</div></div>},
+      content:<div><div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end" }}>{[["Min","baselineRmssdMin","z.B. 20"],["Max","baselineRmssdMax","z.B. 40"]].map(([l,k,ph])=><div key={k}><label style={{ fontSize:"0.7rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={data[k]} placeholder={ph} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.5rem 0.7rem", width:"90px", fontFamily:"monospace", fontSize:"1rem" }}/></div>)}<span style={{ color:"#94a3b8", fontSize:"0.8rem", paddingBottom:"0.5rem" }}>ms</span></div><div style={{ fontSize:"0.67rem", color:"#64748b", marginTop:"0.6rem" }}>Unbekannt? Leer lassen, später in Einstellungen ergänzen.</div></div>},
     { title:"Erinnerungszeiten", sub:"Wann soll die App erinnern?",
       content:<div style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>{[["🌙 Abend","eveningTime"],["🌅 Morgen","morningTime"]].map(([l,k])=><div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}><label style={{ fontSize:"0.82rem", color:"#94a3b8" }}>{l}</label><input type="time" value={data[k]} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.7rem", fontFamily:"monospace", fontSize:"0.95rem", colorScheme:"dark" }}/></div>)}</div>},
     { title:"Fast fertig ✓", sub:"Streak-Anzeige aktivieren?",
@@ -658,7 +736,7 @@ function OnboardingModal({ onComplete }) {
 function NumRow({ label, hint, skey, min, max, unit, settings, onUpdate }) {
   return (
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.7rem" }}>
-      <div><div style={{ fontSize:"0.82rem", color:"#94a3b8" }}>{label}</div>{hint&&<div style={{ fontSize:"0.62rem", color:"#334155", marginTop:"0.1rem" }}>{hint}</div>}</div>
+      <div><div style={{ fontSize:"0.82rem", color:"#94a3b8" }}>{label}</div>{hint&&<div style={{ fontSize:"0.62rem", color:"#64748b", marginTop:"0.1rem" }}>{hint}</div>}</div>
       <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
         <input type="number" min={min} max={max} value={settings[skey]} onChange={e=>onUpdate({[skey]:Number(e.target.value)})} style={{ width:"58px", background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.35rem 0.5rem", fontFamily:"monospace", fontSize:"0.9rem", textAlign:"center" }}/>
         {unit&&<span style={{ fontSize:"0.72rem", color:"#94a3b8" }}>{unit}</span>}
@@ -704,7 +782,7 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
           {[["Min","baselineRmssdMin"],["Max","baselineRmssdMax"]].map(([l,k])=>(<div key={k}><label style={{ fontSize:"0.68rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={s[k]} placeholder="—" onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.6rem", width:"80px", fontFamily:"monospace", fontSize:"0.9rem" }}/></div>))}
           <span style={{ color:"#94a3b8", fontSize:"0.78rem", paddingBottom:"0.4rem" }}>ms</span>
         </div>
-        <div style={{ fontSize:"0.65rem", color:"#334155", marginTop:"0.5rem" }}>Garmin App → HFV → 30-Tage-Übersicht</div>
+        <div style={{ fontSize:"0.65rem", color:"#64748b", marginTop:"0.5rem" }}>Garmin App → HFV → 30-Tage-Übersicht</div>
       </div>
 
       <div style={sec}>
@@ -717,13 +795,13 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
         <div style={sLbl}>Eigene Trigger-Kategorien</div>
         <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginBottom:"0.6rem" }}>
           {(s.customTriggers||[]).map(t=>(<div key={t} style={{ display:"flex", alignItems:"center", gap:"0.3rem", padding:"0.25rem 0.5rem 0.25rem 0.65rem", borderRadius:"20px", background:"#1e1b4b", border:"1px solid #4f46e5" }}><span style={{ fontSize:"0.68rem", color:"#818cf8" }}>{t}</span><button onClick={()=>removeTrigger(t)} style={{ background:"none", border:"none", color:"#94a3b8", cursor:"pointer", fontSize:"0.85rem", lineHeight:1, padding:0 }}>×</button></div>))}
-          {!(s.customTriggers||[]).length&&<div style={{ fontSize:"0.72rem", color:"#334155" }}>Noch keine eigenen Trigger</div>}
+          {!(s.customTriggers||[]).length&&<div style={{ fontSize:"0.72rem", color:"#64748b" }}>Noch keine eigenen Trigger</div>}
         </div>
         <div style={{ display:"flex", gap:"0.4rem" }}>
           <input value={newTrigger} onChange={e=>setNewTrigger(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTrigger()} placeholder="Neuer Trigger…" style={{ flex:1, background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.38rem 0.6rem", fontSize:"0.78rem", fontFamily:"inherit" }}/>
           <button onClick={addTrigger} style={{ padding:"0.38rem 0.8rem", borderRadius:"6px", border:"none", background:"#1e1b4b", color:"#818cf8", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem" }}>+ Hinzufügen</button>
         </div>
-        <div style={{ fontSize:"0.65rem", color:"#334155", marginTop:"0.5rem" }}>Eigene Trigger fließen automatisch in die Lag-Analyse ein.</div>
+        <div style={{ fontSize:"0.65rem", color:"#64748b", marginTop:"0.5rem" }}>Eigene Trigger fließen automatisch in die Lag-Analyse ein.</div>
       </div>
 
       <div style={sec}>
@@ -972,6 +1050,7 @@ export default function PEMTracker() {
   const [evening,        setEvening]        = useState({...DEFAULT_EVENING});
   const [morning,        setMorning]        = useState({...DEFAULT_MORNING});
   const [savedToday,     setSavedToday]     = useState({evening:false,morning:false});
+  const [trendDays,      setTrendDays]      = useState(14);
 
   // Re-register push subscription when reminder times change
   const { notificationsEnabled, morningTime, eveningTime } = settings;
@@ -1040,7 +1119,7 @@ export default function PEMTracker() {
   const todayEntry = entries.find(e=>e.date===today);
   const cal        = computeCalibration(entries,settings);
   const streak     = computeStreak(entries);
-  const trendData  = getTrend14Days(entries,settings);
+  const trendData  = getTrendData(entries, settings, trendDays);
   const riskScore  = computeDayRisk(entries,today,settings,
     todayEntry?.evening||(savedToday.evening?evening:null),
     todayEntry?.morning||(savedToday.morning?morning:null));
@@ -1055,14 +1134,14 @@ export default function PEMTracker() {
       {showOnboarding&&<OnboardingModal onComplete={completeOnboarding}/>}
       {editEntry&&<EditModal entry={editEntry} onSave={saveEditedEntry} onClose={()=>setEditEntry(null)} allTriggers={allTriggers} onAddCustomTrigger={addCustomTrigger}/>}
       {importParsed&&<ImportModal parsed={importParsed} existingDates={new Set(entries.map(e=>e.date))} onImport={handleImport} onClose={()=>setImportParsed(null)}/>}
-      <input ref={fileInputRef} type="file" accept=".csv" onChange={handleCSVFile} style={{ display:"none" }}/>
+      <input ref={fileInputRef} type="file" accept=".csv,text/csv,text/plain" onChange={handleCSVFile} style={{ display:"none" }}/>
 
       <div style={{ padding:"1.4rem 1rem 0.7rem", position:"sticky", top:0, background:"#020617ee", backdropFilter:"blur(8px)", zIndex:10, borderBottom:"1px solid #0f172a" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
           <div>
             <div style={{ fontSize:"0.62rem", color:"#4f46e5", letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:"0.15rem" }}>PEM-Prädiktor</div>
             <h1 style={{ margin:0, fontSize:"1.2rem", fontWeight:700, color:"#e2e8f0" }}>Tagesprotokoll</h1>
-            <div style={{ color:"#334155", fontSize:"0.7rem", marginTop:"0.1rem" }}>{today}</div>
+            <div style={{ color:"#64748b", fontSize:"0.7rem", marginTop:"0.1rem" }}>{today}</div>
           </div>
           {riskScore!==null&&<RiskBadge score={riskScore} threshold={cal?.threshold}/>}
         </div>
@@ -1104,8 +1183,8 @@ export default function PEMTracker() {
             <button onClick={()=>save("morning")} style={{ width:"100%", padding:"0.72rem", borderRadius:"10px", border:"none", cursor:"pointer", background:"#6d28d9", color:"#fff", fontFamily:"inherit", fontWeight:700, fontSize:"0.9rem" }}>Morgen speichern</button>
             {savedToday.morning&&<div style={{ textAlign:"center", color:"#4ade80", fontSize:"0.72rem", marginTop:"0.55rem" }}>✓ Gespeichert</div>}
             <div style={{ background:"#0f172a", borderRadius:"10px", padding:"0.85rem 1rem", border:"1px solid #1e293b", marginTop:"1rem" }}>
-              <div style={{ fontSize:"0.62rem", color:"#334155", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:"0.55rem" }}>Wo in Garmin ablesen</div>
-              {[["rMSSD","Garmin App → Herzfrequenzvariabilität"],["HFV-Status","Garmin App → Gesundheit → HFV-Status"],["Morgenpuls","Garmin Connect → Schlaf → Ruheherzfrequenz"],["Atemfrequenz","Garmin Connect → Schlaf → Atemfrequenz"]].map(([k,v])=>(<div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"0.22rem 0", borderBottom:"1px solid #0f172a" }}><span style={{ fontSize:"0.7rem", color:"#818cf8", fontWeight:600 }}>{k}</span><span style={{ fontSize:"0.65rem", color:"#334155" }}>{v}</span></div>))}
+              <div style={{ fontSize:"0.62rem", color:"#64748b", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:"0.55rem" }}>Wo in Garmin ablesen</div>
+              {[["rMSSD","Garmin App → Herzfrequenzvariabilität"],["HFV-Status","Garmin App → Gesundheit → HFV-Status"],["Morgenpuls","Garmin Connect → Schlaf → Ruheherzfrequenz"],["Atemfrequenz","Garmin Connect → Schlaf → Atemfrequenz"]].map(([k,v])=>(<div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"0.22rem 0", borderBottom:"1px solid #0f172a" }}><span style={{ fontSize:"0.7rem", color:"#818cf8", fontWeight:600 }}>{k}</span><span style={{ fontSize:"0.65rem", color:"#64748b" }}>{v}</span></div>))}
             </div>
           </div>)}
         </div>)}
@@ -1121,18 +1200,29 @@ export default function PEMTracker() {
             </button>}
           </div>
           {entries.length===0
-            ?<div style={{ textAlign:"center", color:"#334155", padding:"3rem 1rem" }}><div style={{ display:"flex", justifyContent:"center", marginBottom:"0.5rem" }}><ClipboardList size={32} color="#334155"/></div>Noch keine Einträge<br/><button onClick={loadTestData} style={{ marginTop:"1rem", padding:"0.5rem 1rem", borderRadius:"8px", border:"1px solid #334155", background:"#1e293b", color:"#64748b", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem" }}>Testdaten laden</button></div>
+            ?<div style={{ textAlign:"center", color:"#64748b", padding:"3rem 1rem" }}><div style={{ display:"flex", justifyContent:"center", marginBottom:"0.5rem" }}><ClipboardList size={32} color="#334155"/></div>Noch keine Einträge<br/><button onClick={loadTestData} style={{ marginTop:"1rem", padding:"0.5rem 1rem", borderRadius:"8px", border:"1px solid #334155", background:"#1e293b", color:"#64748b", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem" }}>Testdaten laden</button></div>
             :entries.map(e=><EntryCard key={e.id} entry={e} onDelete={deleteEntry} onEdit={setEditEntry} entries={entries} settings={settings}/>)
           }
         </div>)}
 
         {tab==="analysis"&&(<div style={{ padding:"0 1rem" }}>
           <div style={{ background:"#0f172a", borderRadius:"12px", padding:"1rem 1.1rem", border:"1px solid #1e293b", marginBottom:"1rem" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:"0.7rem" }}>
-              <div style={{ fontSize:"0.68rem", color:"#818cf8", letterSpacing:"0.1em", textTransform:"uppercase" }}>14-Tage-Trend</div>
-              <div style={{ display:"flex", gap:"0.7rem" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.7rem" }}>
+              <div style={{ fontSize:"0.68rem", color:"#818cf8", letterSpacing:"0.1em", textTransform:"uppercase" }}>
+                {trendDays===365?"Jahrestrend (Wochenø)":trendDays===30?"30-Tage-Trend":"14-Tage-Trend"}
+              </div>
+              <div style={{ display:"flex", gap:"0.5rem", alignItems:"center" }}>
                 <span style={{ fontSize:"0.6rem", color:"#64748b", display:"flex", alignItems:"center", gap:"0.2rem" }}><span style={{ display:"inline-block", width:"7px", height:"7px", borderRadius:"50%", background:"#f87171" }}/>PEM</span>
                 {cal?.threshold&&<span style={{ fontSize:"0.6rem", color:"#6366f1" }}>– – Schwelle ({cal.threshold})</span>}
+                <select
+                  value={trendDays}
+                  onChange={e=>setTrendDays(Number(e.target.value))}
+                  style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#94a3b8", fontSize:"0.65rem", padding:"0.2rem 0.4rem", fontFamily:"inherit", cursor:"pointer" }}
+                >
+                  <option value={14}>14 Tage</option>
+                  <option value={30}>30 Tage</option>
+                  <option value={365}>1 Jahr</option>
+                </select>
               </div>
             </div>
             <TrendChart data={trendData} threshold={cal?.threshold}/>
