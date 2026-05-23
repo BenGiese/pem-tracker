@@ -99,5 +99,6 @@ export async function sendPush(subscription, payload, env) {
     body,
   });
 
-  return res.status;
+  const text = await res.text().catch(() => '');
+  return { status: res.status, body: text.slice(0, 300) };
 }

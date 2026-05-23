@@ -5,7 +5,8 @@ import { Moon, Sunrise, Flame, ClipboardList, BarChart2, Settings2, Download, Up
 
 const STORAGE_KEY = "pem_log_entries_v2";
 const SETTINGS_KEY = "pem_settings_v2";
-const DEVICE_ID_KEY = "pem_device_id";
+const DEVICE_ID_KEY    = "pem_device_id";
+const VAPID_KEY_STORE  = "pem_vapid_key";
 
 function getDeviceId() {
   let id = localStorage.getItem(DEVICE_ID_KEY);
@@ -1121,14 +1122,19 @@ function localToUTC(timeStr) {
 
 async function subscribeToPush({ morningTime, eveningTime }) {
   const sw = await navigator.serviceWorker.ready;
-  // Reuse existing subscription — unsubscribe+resubscribe can silently lose the subscription
-  // if the new subscribe() call fails, leaving no valid entry in the Worker KV.
   let sub = await sw.pushManager.getSubscription();
+  // If the VAPID key changed, the existing subscription is invalid — force fresh one
+  const storedKey = localStorage.getItem(VAPID_KEY_STORE);
+  if (sub && storedKey !== VAPID_PUBLIC_KEY) {
+    await sub.unsubscribe();
+    sub = null;
+  }
   if (!sub) {
     sub = await sw.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
+    localStorage.setItem(VAPID_KEY_STORE, VAPID_PUBLIC_KEY);
   }
   await fetch(`${PUSH_SERVER_URL}/api/subscribe`, {
     method: "POST",

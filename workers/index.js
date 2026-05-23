@@ -45,7 +45,7 @@ async function sendAll(env, forceSlot) {
           : 'Wie war dein Tag? Bitte deinen Abend-Eintrag machen.';
 
         try {
-          const status = await sendPush(stored.subscription, JSON.stringify({ title, body }), env);
+          const { status } = await sendPush(stored.subscription, JSON.stringify({ title, body }), env);
           if (status === 410) await env.KV.delete(name);
         } catch { /* ignore invalid subscriptions */ }
       }),
@@ -89,8 +89,8 @@ export default {
         const stored = await env.KV.get(name, 'json');
         if (!stored?.subscription) { results.push({ key: name, error: 'no subscription' }); return; }
         try {
-          const status = await sendPush(stored.subscription, JSON.stringify({ title: 'PEM-Tracker Test', body: 'Debug-Nachricht' }), env);
-          results.push({ key: name, morningUTC: stored.morningUTC, eveningUTC: stored.eveningUTC, fcmStatus: status });
+          const result = await sendPush(stored.subscription, JSON.stringify({ title: 'PEM-Tracker Test', body: 'Debug-Nachricht' }), env);
+          results.push({ key: name, morningUTC: stored.morningUTC, eveningUTC: stored.eveningUTC, ...result });
         } catch (e) {
           results.push({ key: name, error: String(e) });
         }
