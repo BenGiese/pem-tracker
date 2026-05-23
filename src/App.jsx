@@ -7,6 +7,7 @@ const STORAGE_KEY = "pem_log_entries_v2";
 const SETTINGS_KEY = "pem_settings_v2";
 const DEVICE_ID_KEY    = "pem_device_id";
 const VAPID_KEY_STORE  = "pem_vapid_key";
+const LAST_EXPORT_KEY  = "pem_last_export";
 
 function getDeviceId() {
   let id = localStorage.getItem(DEVICE_ID_KEY);
@@ -382,6 +383,7 @@ function downloadCSV(entries) {
   a.download = `pem-tracker-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+  localStorage.setItem(LAST_EXPORT_KEY, String(Date.now()));
 }
 
 function buildCSV(entries) {
@@ -826,10 +828,11 @@ function NumRow({ label, hint, skey, min, max, unit, settings, onUpdate }) {
   );
 }
 
-function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll, dynBaseline }) {
+function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll, onExport, dynBaseline }) {
   const [notifStatus,    setNotifStatus]    = useState(null);
   const [newTrigger,     setNewTrigger]     = useState("");
   const [confirmDelete,  setConfirmDelete]  = useState(false);
+  const [exportedFirst,  setExportedFirst]  = useState(false);
 
   const requestNotif = async () => {
     if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -934,12 +937,13 @@ function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll, 
         <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem" }}>
           <button onClick={()=>onUpdate({setupDone:false})} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #334155", background:"none", color:"#94a3b8", cursor:"pointer", fontFamily:"inherit", fontSize:"0.75rem" }}>Einrichtungsassistent erneut starten</button>
           {!confirmDelete
-            ? <button onClick={()=>setConfirmDelete(true)} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #7f1d1d", background:"none", color:"#f87171", cursor:"pointer", fontFamily:"inherit", fontSize:"0.75rem" }}>Alle Daten löschen …</button>
+            ? <button onClick={()=>{ onExport(); setExportedFirst(true); setConfirmDelete(true); }} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #7f1d1d", background:"none", color:"#f87171", cursor:"pointer", fontFamily:"inherit", fontSize:"0.75rem" }}>Alle Daten löschen …</button>
             : <div style={{ background:"#7f1d1d22", borderRadius:"8px", padding:"0.7rem", border:"1px solid #7f1d1d" }}>
-                <div style={{ fontSize:"0.75rem", color:"#fca5a5", marginBottom:"0.5rem" }}>Alle {entries.length} Einträge unwiderruflich löschen?</div>
+                {exportedFirst&&<div style={{ fontSize:"0.72rem", color:"#4ade80", marginBottom:"0.5rem", display:"flex", alignItems:"center", gap:"0.35rem" }}><Check size={12}/>Backup wurde automatisch exportiert</div>}
+                <div style={{ fontSize:"0.75rem", color:"#fca5a5", marginBottom:"0.5rem" }}>Alle {entries.length} Einträge jetzt löschen?</div>
                 <div style={{ display:"flex", gap:"0.5rem" }}>
-                  <button onClick={()=>setConfirmDelete(false)} style={{ flex:1, padding:"0.4rem", borderRadius:"6px", border:"1px solid #334155", background:"none", color:"#94a3b8", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem" }}>Abbrechen</button>
-                  <button onClick={()=>{onDeleteAll();setConfirmDelete(false);}} style={{ flex:1, padding:"0.4rem", borderRadius:"6px", border:"none", background:"#7f1d1d", color:"#fff", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem", fontWeight:600 }}>Ja, löschen</button>
+                  <button onClick={()=>{setConfirmDelete(false);setExportedFirst(false);}} style={{ flex:1, padding:"0.4rem", borderRadius:"6px", border:"1px solid #334155", background:"none", color:"#94a3b8", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem" }}>Abbrechen</button>
+                  <button onClick={()=>{onDeleteAll();setConfirmDelete(false);setExportedFirst(false);}} style={{ flex:1, padding:"0.4rem", borderRadius:"6px", border:"none", background:"#7f1d1d", color:"#fff", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem", fontWeight:600 }}>Ja, löschen</button>
                 </div>
               </div>
           }
@@ -1173,6 +1177,13 @@ export default function PEMTracker() {
   const [morning,        setMorning]        = useState({...DEFAULT_MORNING});
   const [savedToday,     setSavedToday]     = useState({evening:false,morning:false});
   const [trendDays,      setTrendDays]      = useState(14);
+  const [exportBannerDismissed, setExportBannerDismissed] = useState(false);
+
+  const lastExportTs = parseInt(localStorage.getItem(LAST_EXPORT_KEY) || "0");
+  const exportDue = entries.length >= 5 && !exportBannerDismissed &&
+    (Date.now() - lastExportTs > 7 * 24 * 60 * 60 * 1000);
+
+  const handleExport = () => { downloadCSV(entries); setExportBannerDismissed(true); };
 
   // Re-register push subscription when reminder times change
   const { notificationsEnabled, morningTime, eveningTime } = settings;
@@ -1352,8 +1363,17 @@ export default function PEMTracker() {
           <AnalysisPanel entries={entries} allTriggers={allTriggers} settings={settings}/>
         </div>)}
 
-        {tab==="settings"&&<div style={{ padding:"0 1rem" }}><SettingsTab settings={settings} onUpdate={updateSettings} entries={entries} allTriggers={allTriggers} onDeleteAll={deleteAll} dynBaseline={computeDynamicBaseline(entries)}/></div>}
+        {tab==="settings"&&<div style={{ padding:"0 1rem" }}><SettingsTab settings={settings} onUpdate={updateSettings} entries={entries} allTriggers={allTriggers} onDeleteAll={deleteAll} onExport={handleExport} dynBaseline={computeDynamicBaseline(entries)}/></div>}
       </div>
+
+      {exportDue&&(
+        <div style={{ position:"fixed", bottom:"60px", left:"50%", transform:"translateX(-50%)", width:"calc(100% - 2rem)", maxWidth:"444px", background:"#1e1b4b", border:"1px solid #4f46e5", borderRadius:"12px", padding:"0.7rem 0.9rem", display:"flex", alignItems:"center", gap:"0.7rem", zIndex:25 }}>
+          <Download size={16} style={{ color:"#818cf8", flexShrink:0 }}/>
+          <span style={{ flex:1, fontSize:"0.78rem", color:"#c7d2fe" }}>Kein Export seit einer Woche — Daten sichern?</span>
+          <button onClick={handleExport} style={{ padding:"0.3rem 0.7rem", borderRadius:"6px", border:"none", background:"#4f46e5", color:"#fff", cursor:"pointer", fontFamily:"inherit", fontSize:"0.75rem", fontWeight:600, whiteSpace:"nowrap" }}>Exportieren</button>
+          <button onClick={()=>setExportBannerDismissed(true)} style={{ background:"none", border:"none", color:"#64748b", cursor:"pointer", padding:0, display:"flex" }}><X size={16}/></button>
+        </div>
+      )}
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:"480px", background:"#0f172a", borderTop:"1px solid #1e293b", display:"flex", padding:"0.45rem 0 0.7rem", zIndex:20 }}>
         {TABS.map(t=>(<button key={t.key} onClick={()=>setTab(t.key)} style={{ flex:1, background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:"0.15rem", padding:"0.25rem 0", color:tab===t.key?"#818cf8":"#64748b" }}>{t.icon}<span style={{ fontSize:"0.58rem", fontFamily:"inherit", fontWeight:tab===t.key?600:400 }}>{t.label}</span></button>))}
