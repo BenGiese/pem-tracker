@@ -342,33 +342,6 @@ function buildCSV(entries) {
   return "\uFEFF" + [h.map(q).join(";"), ...rows].join("\r\n");
 }
 
-function generateTestData() {
-  const today = new Date();
-  const mkD = ago => { const d = new Date(today); d.setDate(d.getDate()-ago); return mkDateStr(d); };
-  const plan = [
-    {i:13,e:{f:4,p:3,b:4,s:5,pem:false,act:3,tr:["Körperl. Aktivität"],n:"Kurzer Spaziergang"},m:{r:32,hrv:"balanced",hr:62,br:14,sw:3,pc:false,n:""}},
-    {i:12,e:{f:6,p:4,b:5,s:6,pem:false,act:1,tr:[],n:"Etwas erschöpft"},m:{r:25,hrv:"unbalanced",hr:67,br:15,sw:5,pc:false,n:""}},
-    {i:11,e:{f:9,p:7,b:8,s:7,pem:true,act:0,tr:[],n:"PEM nach Spaziergang"},m:{r:16,hrv:"low",hr:76,br:17,sw:8,pc:true,n:"Sehr schwer aufgestanden"}},
-    {i:10,e:{f:8,p:6,b:7,s:8,pem:false,act:0,tr:[],n:""},m:{r:18,hrv:"low",hr:74,br:16,sw:7,pc:false,n:"Immer noch schlecht"}},
-    {i:9, e:{f:6,p:5,b:5,s:6,pem:false,act:0,tr:[],n:"Etwas ruhiger"},m:{r:22,hrv:"unbalanced",hr:70,br:15,sw:5,pc:false,n:""}},
-    {i:8, e:{f:5,p:4,b:4,s:5,pem:false,act:2,tr:["Sozialer Kontakt"],n:"Besuch von Tochter"},m:{r:30,hrv:"balanced",hr:63,br:14,sw:4,pc:false,n:""}},
-    {i:7, e:{f:7,p:5,b:7,s:6,pem:false,act:1,tr:["Sozialer Kontakt","Emotionale Belastung"],n:""},m:{r:19,hrv:"low",hr:73,br:16,sw:6,pc:false,n:""}},
-    {i:6, e:{f:9,p:8,b:9,s:8,pem:true,act:0,tr:[],n:"PEM nach Besuch"},m:{r:14,hrv:"low",hr:80,br:18,sw:9,pc:true,n:"Schlimmste Nacht seit Wochen"}},
-    {i:5, e:{f:8,p:6,b:7,s:7,pem:false,act:0,tr:[],n:""},m:{r:17,hrv:"low",hr:76,br:17,sw:7,pc:false,n:""}},
-    {i:4, e:{f:6,p:4,b:5,s:6,pem:false,act:0,tr:[],n:"Langsam besser"},m:{r:24,hrv:"unbalanced",hr:68,br:15,sw:5,pc:false,n:""}},
-    {i:3, e:{f:5,p:4,b:5,s:5,pem:false,act:2,tr:["Stress","Körperl. Aktivität"],n:"Arzttermin"},m:{r:27,hrv:"balanced",hr:64,br:14,sw:4,pc:false,n:""}},
-    {i:2, e:{f:8,p:6,b:8,s:7,pem:true,act:0,tr:[],n:"Nach Arzttermin zusammengebrochen"},m:{r:16,hrv:"low",hr:78,br:17,sw:8,pc:true,n:""}},
-    {i:1, e:{f:7,p:5,b:6,s:7,pem:false,act:0,tr:[],n:""},m:{r:21,hrv:"unbalanced",hr:71,br:16,sw:6,pc:false,n:"Etwas besser"}},
-    {i:0, e:{f:5,p:4,b:5,s:6,pem:false,act:0,tr:[],n:""},m:{r:26,hrv:"unbalanced",hr:66,br:15,sw:5,pc:null,n:""}},
-  ];
-  return plan.map(({i,e,m}) => ({
-    id: Date.now() - i * 86400000,
-    date: mkD(i),
-    evening: {fatigue:e.f,pain:e.p,brainfog:e.b,unrefreshing_sleep_prev:e.s,pem_today:e.pem,activity_today:e.act,triggers:e.tr,notes:e.n},
-    morning: {rmssd_garmin:String(m.r),hrv_status:m.hrv,morning_hr:String(m.hr),breath_rate:String(m.br),symptom_on_waking:m.sw,pem_confirmed:m.pc,notes:m.n}
-  }));
-}
-
 // ─── Small UI Components ──────────────────────────────────────────────────────
 
 function SliderField({ label, value, onChange, hint }) {
@@ -786,7 +759,7 @@ function NumRow({ label, hint, skey, min, max, unit, settings, onUpdate }) {
   );
 }
 
-function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTriggers, onDeleteAll }) {
+function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll }) {
   const [notifStatus,    setNotifStatus]    = useState(null);
   const [newTrigger,     setNewTrigger]     = useState("");
   const [confirmDelete,  setConfirmDelete]  = useState(false);
@@ -876,7 +849,6 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
         <div style={sLbl}>Daten</div>
         <div style={{ fontSize:"0.78rem", color:"#94a3b8", marginBottom:"0.8rem" }}>{entries.length} Einträge · {entries.filter(e=>e.evening&&e.morning).length} vollständig</div>
         <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem" }}>
-          <button onClick={onLoadTestData} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #334155", background:"#1e293b", color:"#64748b", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem" }}>Testdaten laden (14 Tage)</button>
           <button onClick={()=>onUpdate({setupDone:false})} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #334155", background:"none", color:"#94a3b8", cursor:"pointer", fontFamily:"inherit", fontSize:"0.75rem" }}>Einrichtungsassistent erneut starten</button>
           {!confirmDelete
             ? <button onClick={()=>setConfirmDelete(true)} style={{ padding:"0.5rem", borderRadius:"8px", border:"1px solid #7f1d1d", background:"none", color:"#f87171", cursor:"pointer", fontFamily:"inherit", fontSize:"0.75rem" }}>Alle Daten löschen …</button>
@@ -1138,7 +1110,6 @@ export default function PEMTracker() {
 
   const deleteEntry     = id => persist(entries.filter(e=>e.id!==id));
   const saveEditedEntry = u  => persist(entries.map(e=>e.id===u.id?u:e));
-  const loadTestData    = () => { persist(generateTestData()); setTab("history"); };
   const addCustomTrigger = t => updateSettings({customTriggers:[...(settings.customTriggers||[]),t]});
 
   const [importParsed, setImportParsed] = useState(null);
@@ -1258,7 +1229,7 @@ export default function PEMTracker() {
             </button>}
           </div>
           {entries.length===0
-            ?<div style={{ textAlign:"center", color:"#64748b", padding:"3rem 1rem" }}><div style={{ display:"flex", justifyContent:"center", marginBottom:"0.5rem" }}><ClipboardList size={32} color="#334155"/></div>Noch keine Einträge<br/><button onClick={loadTestData} style={{ marginTop:"1rem", padding:"0.5rem 1rem", borderRadius:"8px", border:"1px solid #334155", background:"#1e293b", color:"#64748b", cursor:"pointer", fontFamily:"inherit", fontSize:"0.78rem" }}>Testdaten laden</button></div>
+            ?<div style={{ textAlign:"center", color:"#64748b", padding:"3rem 1rem" }}><div style={{ display:"flex", justifyContent:"center", marginBottom:"0.5rem" }}><ClipboardList size={32} color="#334155"/></div>Noch keine Einträge</div>
             :entries.map(e=><EntryCard key={e.id} entry={e} onDelete={deleteEntry} onEdit={setEditEntry} entries={entries} settings={settings}/>)
           }
         </div>)}
@@ -1289,7 +1260,7 @@ export default function PEMTracker() {
           <AnalysisPanel entries={entries} allTriggers={allTriggers} settings={settings}/>
         </div>)}
 
-        {tab==="settings"&&<div style={{ padding:"0 1rem" }}><SettingsTab settings={settings} onUpdate={updateSettings} entries={entries} onLoadTestData={loadTestData} allTriggers={allTriggers} onDeleteAll={deleteAll}/></div>}
+        {tab==="settings"&&<div style={{ padding:"0 1rem" }}><SettingsTab settings={settings} onUpdate={updateSettings} entries={entries} allTriggers={allTriggers} onDeleteAll={deleteAll}/></div>}
       </div>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:"480px", background:"#0f172a", borderTop:"1px solid #1e293b", display:"flex", padding:"0.45rem 0 0.7rem", zIndex:20 }}>
