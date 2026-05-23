@@ -46,6 +46,10 @@ const HRV_OPTIONS = ["balanced", "unbalanced", "low"];
 const HRV_LABELS = { balanced: "✓ Balanced", unbalanced: "⚠ Unbalanced", low: "✗ Low" };
 const HRV_COLORS = { balanced: "#4ade80", unbalanced: "#facc15", low: "#f87171" };
 
+const TIME_SLOTS = Array.from({ length: 48 }, (_, i) =>
+  `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`
+);
+
 // ─── Date Helpers ─────────────────────────────────────────────────────────────
 
 function mkDateStr(d) {
@@ -776,7 +780,7 @@ function OnboardingModal({ onComplete }) {
         {[["morningTime",<Sunrise size={14}/>,"Morgen"],["eveningTime",<Moon size={14}/>,"Abend"]].map(([k,icon,l])=>(
           <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <label style={{ fontSize:"0.82rem", color:"#94a3b8", display:"flex", alignItems:"center", gap:"0.4rem" }}>{icon}{l}</label>
-            <input type="time" value={data[k]} step="1800" onChange={e=>setData(d=>({...d,[k]:snapTo30(e.target.value)}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.7rem", fontFamily:"monospace", fontSize:"0.95rem", colorScheme:"dark" }}/>
+            <select value={TIME_SLOTS.includes(data[k]) ? data[k] : snapTo30(data[k])} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.7rem", fontFamily:"monospace", fontSize:"0.95rem", colorScheme:"dark", cursor:"pointer" }}>{TIME_SLOTS.map(t=><option key={t} value={t}>{t}</option>)}</select>
           </div>
         ))}
       </div>},
@@ -900,7 +904,7 @@ function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll, 
 
       <div style={sec}>
         <div style={sLbl}>Erinnerungszeiten</div>
-        {[[<Sunrise size={14}/>, "morningTime"],[<Moon size={14}/>, "eveningTime"]].map(([icon,k])=>(<div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.7rem" }}><span style={{ fontSize:"0.82rem", color:"#94a3b8", display:"flex", alignItems:"center", gap:"0.35rem" }}>{icon}{k==="morningTime"?"Morgen":"Abend"}</span><input type="time" value={s[k]} step="1800" onChange={e=>onUpdate({[k]:snapTo30(e.target.value)})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.33rem 0.6rem", fontFamily:"monospace", fontSize:"0.88rem", colorScheme:"dark" }}/></div>))}
+        {[[<Sunrise size={14}/>, "morningTime"],[<Moon size={14}/>, "eveningTime"]].map(([icon,k])=>(<div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.7rem" }}><span style={{ fontSize:"0.82rem", color:"#94a3b8", display:"flex", alignItems:"center", gap:"0.35rem" }}>{icon}{k==="morningTime"?"Morgen":"Abend"}</span><select value={TIME_SLOTS.includes(s[k]) ? s[k] : snapTo30(s[k])} onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.33rem 0.6rem", fontFamily:"monospace", fontSize:"0.88rem", colorScheme:"dark", cursor:"pointer" }}>{TIME_SLOTS.map(t=><option key={t} value={t}>{t}</option>)}</select></div>))}
         <button onClick={requestNotif} style={{ width:"100%", padding:"0.5rem", borderRadius:"8px", border:`1px solid ${s.notificationsEnabled?"#4ade80":"#334155"}`, background:s.notificationsEnabled?"#14532d22":"#1e293b", color:s.notificationsEnabled?"#4ade80":"#64748b", cursor:"pointer", fontFamily:"inherit", fontSize:"0.8rem", fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", gap:"0.4rem" }}>
           <Check size={14}/>{s.notificationsEnabled?"Push aktiv (tippen zum Deaktivieren)":"Push-Benachrichtigungen aktivieren"}
         </button>
