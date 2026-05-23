@@ -1103,7 +1103,7 @@ function ImportModal({ parsed, existingDates, onImport, onClose }) {
 // ─── Push Notifications ───────────────────────────────────────────────────────
 
 const PUSH_SERVER_URL = import.meta.env.VITE_PUSH_SERVER_URL || "https://pem-tracker-api.bengiese.workers.dev";
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "BNy5QBRWy_-iMUF1-ARe4lyhMxJIr6jeB-hVoFdrIzEEe3Gf67vHizBM57_IUjXHrYm_sn2XRKEIbZoWaeDAbOg";
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "BDx0VFZ3DLBvsC91gWLUhZjLzMhCzONT1p5jdupu1q-gvnyl69mOjjSi-7XUcDXh8t_3rAvAfukU1UyxwHdKV4I";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);

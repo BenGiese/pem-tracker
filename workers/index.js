@@ -81,6 +81,23 @@ export default {
       return json({ ok: true });
     }
 
+    // Debug: GET /api/debug — sends to all subs and returns FCM status per device
+    if (url.pathname === '/api/debug' && method === 'GET') {
+      const results = [];
+      const list = await env.KV.list({ prefix: 'sub:' });
+      await Promise.all(list.keys.map(async ({ name }) => {
+        const stored = await env.KV.get(name, 'json');
+        if (!stored?.subscription) { results.push({ key: name, error: 'no subscription' }); return; }
+        try {
+          const status = await sendPush(stored.subscription, JSON.stringify({ title: 'PEM-Tracker Test', body: 'Debug-Nachricht' }), env);
+          results.push({ key: name, morningUTC: stored.morningUTC, eveningUTC: stored.eveningUTC, fcmStatus: status });
+        } catch (e) {
+          results.push({ key: name, error: String(e) });
+        }
+      }));
+      return json({ results });
+    }
+
     return json({ error: 'Not found' }, 404);
   },
 
