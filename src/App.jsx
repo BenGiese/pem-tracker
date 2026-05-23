@@ -62,19 +62,27 @@ function shiftDate(str, days) {
   return mkDateStr(d);
 }
 
+function snapTo30(timeStr) {
+  if (!timeStr) return timeStr;
+  const [h, m] = timeStr.split(":").map(Number);
+  const snappedM = m < 15 ? 0 : m < 45 ? 30 : 0;
+  const snappedH = m >= 45 ? (h + 1) % 24 : h;
+  return `${String(snappedH).padStart(2, "0")}:${String(snappedM).padStart(2, "0")}`;
+}
+
 // ─── Risk Calculation ─────────────────────────────────────────────────────────
 
 // Putrino et al. npj Digital Medicine 2026:
 // morning biometrics (HR + HRV) dominate prediction (AUC 0.82–0.85)
-function computeBaseRisk(eve, morn, settings = {}) {
+function computeBaseRisk(eve, morn, settings = {}, dyn = null) {
   if (!eve && !morn) return null;
   let eveScore = null, mornScore = null;
 
   if (morn) {
     // HR vs. baseline (25%) — elevated resting HR = risk
     const hrNum = parseFloat(morn.morning_hr);
-    const hrMin = parseFloat(settings.baselineHrMin);
-    const hrMax = parseFloat(settings.baselineHrMax);
+    const hrMin = parseFloat(settings.baselineHrMin) || dyn?.hrMin || NaN;
+    const hrMax = parseFloat(settings.baselineHrMax) || dyn?.hrMax || NaN;
     let hrS = 5; // neutral when no baseline configured
     if (!isNaN(hrNum) && !isNaN(hrMin) && !isNaN(hrMax) && hrMin > 0) {
       hrS = hrNum < hrMin ? 2 : hrNum > hrMax ? 8 : 4;
@@ -86,8 +94,8 @@ function computeBaseRisk(eve, morn, settings = {}) {
     // rMSSD vs. baseline (25%) — below baseline = risk
     let rmssdS = 5;
     const r = parseFloat(morn.rmssd_garmin);
-    const bMin = parseFloat(settings.baselineRmssdMin);
-    const bMax = parseFloat(settings.baselineRmssdMax);
+    const bMin = parseFloat(settings.baselineRmssdMin) || dyn?.rmssdMin || NaN;
+    const bMax = parseFloat(settings.baselineRmssdMax) || dyn?.rmssdMax || NaN;
     if (!isNaN(r) && !isNaN(bMin) && !isNaN(bMax) && bMin > 0) {
       rmssdS = r < bMin ? Math.min(10, 5 + ((bMin - r) / bMin) * 10) : r > bMax ? 2 : 5;
     }
@@ -111,11 +119,50 @@ function computeBaseRisk(eve, morn, settings = {}) {
   return eveScore ?? mornScore;
 }
 
+function computeDynamicBaseline(entries) {
+  const sorted = [...entries].sort((a, b) => {
+    const da = parseDEDate(a.date), db = parseDEDate(b.date);
+    return (db?.getTime() ?? 0) - (da?.getTime() ?? 0);
+  });
+  const rmssdVals = [], hrVals = [];
+  for (const e of sorted) {
+    if (rmssdVals.length < 30) {
+      const v = parseFloat(e.morning?.rmssd_garmin);
+      if (!isNaN(v) && v > 0) rmssdVals.push(v);
+    }
+    if (hrVals.length < 30) {
+      const v = parseFloat(e.morning?.morning_hr);
+      if (!isNaN(v) && v > 0) hrVals.push(v);
+    }
+    if (rmssdVals.length >= 30 && hrVals.length >= 30) break;
+  }
+  if (rmssdVals.length < 20 && hrVals.length < 20) return null;
+  const pct = (arr, p) => {
+    const s = [...arr].sort((a, b) => a - b);
+    const i = (p / 100) * (s.length - 1);
+    const lo = Math.floor(i), hi = Math.ceil(i);
+    return lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (i - lo);
+  };
+  const result = {};
+  if (rmssdVals.length >= 20) {
+    result.rmssdMin = Math.round(pct(rmssdVals, 25));
+    result.rmssdMax = Math.round(pct(rmssdVals, 75));
+    result.rmssdN = rmssdVals.length;
+  }
+  if (hrVals.length >= 20) {
+    result.hrMin = Math.round(pct(hrVals, 25));
+    result.hrMax = Math.round(pct(hrVals, 75));
+    result.hrN = hrVals.length;
+  }
+  return result;
+}
+
 function computeDayRisk(entries, dateStr, settings = {}, overrideEve = null, overrideMorn = null) {
   const entry = entries.find(e => e.date === dateStr);
   const eve   = overrideEve  || entry?.evening || null;
   const morn  = overrideMorn || entry?.morning  || null;
-  const base  = computeBaseRisk(eve, morn, settings);
+  const dyn   = computeDynamicBaseline(entries);
+  const base  = computeBaseRisk(eve, morn, settings, dyn);
   if (base === null) return null;
   const N = Math.max(0, Math.min(7, parseInt(settings.rollingDays) ?? 3));
   if (N === 0) return Math.min(Math.max(Math.round(base), 0), 10);
@@ -123,7 +170,7 @@ function computeDayRisk(entries, dateStr, settings = {}, overrideEve = null, ove
   for (let i = 1; i <= N; i++) {
     const prev = entries.find(e => e.date === shiftDate(dateStr, -i));
     if (!prev) continue;
-    const s = computeBaseRisk(prev.evening, prev.morning, settings);
+    const s = computeBaseRisk(prev.evening, prev.morning, settings, dyn);
     if (s === null) continue;
     const w = 1 / Math.pow(i, 0.7);
     wSum += s * w; wTotal += w;
@@ -135,6 +182,7 @@ function computeDayRisk(entries, dateStr, settings = {}, overrideEve = null, ove
 // ─── Calibration ─────────────────────────────────────────────────────────────
 
 function computeCalibration(entries, settings = {}) {
+  const dyn = computeDynamicBaseline(entries);
   const windowDays = parseInt(settings.calibrationDays) ?? 90;
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - windowDays);
   const labeled = entries.filter(e => {
@@ -142,8 +190,8 @@ function computeCalibration(entries, settings = {}) {
     return d && d >= cutoff && (e.morning?.pem_confirmed === true || e.morning?.pem_confirmed === false);
   });
   if (labeled.length < 5) return null;
-  const pemS  = labeled.filter(e => e.morning.pem_confirmed === true ).map(e => computeBaseRisk(e.evening, e.morning, settings)).filter(s => s !== null);
-  const noS   = labeled.filter(e => e.morning.pem_confirmed === false).map(e => computeBaseRisk(e.evening, e.morning, settings)).filter(s => s !== null);
+  const pemS  = labeled.filter(e => e.morning.pem_confirmed === true ).map(e => computeBaseRisk(e.evening, e.morning, settings, dyn)).filter(s => s !== null);
+  const noS   = labeled.filter(e => e.morning.pem_confirmed === false).map(e => computeBaseRisk(e.evening, e.morning, settings, dyn)).filter(s => s !== null);
   if (!pemS.length || !noS.length) return null;
   const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
   const avgPem = avg(pemS), avgNoPem = avg(noS);
@@ -728,7 +776,7 @@ function OnboardingModal({ onComplete }) {
         {[["morningTime",<Sunrise size={14}/>,"Morgen"],["eveningTime",<Moon size={14}/>,"Abend"]].map(([k,icon,l])=>(
           <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <label style={{ fontSize:"0.82rem", color:"#94a3b8", display:"flex", alignItems:"center", gap:"0.4rem" }}>{icon}{l}</label>
-            <input type="time" value={data[k]} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.7rem", fontFamily:"monospace", fontSize:"0.95rem", colorScheme:"dark" }}/>
+            <input type="time" value={data[k]} step="1800" onChange={e=>setData(d=>({...d,[k]:snapTo30(e.target.value)}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.7rem", fontFamily:"monospace", fontSize:"0.95rem", colorScheme:"dark" }}/>
           </div>
         ))}
       </div>},
@@ -766,7 +814,7 @@ function NumRow({ label, hint, skey, min, max, unit, settings, onUpdate }) {
   );
 }
 
-function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll }) {
+function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll, dynBaseline }) {
   const [notifStatus,    setNotifStatus]    = useState(null);
   const [newTrigger,     setNewTrigger]     = useState("");
   const [confirmDelete,  setConfirmDelete]  = useState(false);
@@ -799,8 +847,16 @@ function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll }
     <div>
       <div style={sec}>
         <div style={sLbl}>Garmin rMSSD Baseline</div>
+        {!s.baselineRmssdMin && !s.baselineRmssdMax && dynBaseline?.rmssdMin
+          ? <div style={{ fontSize:"0.65rem", color:"#818cf8", marginBottom:"0.6rem" }}>Automatisch aus deinen letzten {dynBaseline.rmssdN} Einträgen berechnet</div>
+          : (s.baselineRmssdMin || s.baselineRmssdMax)
+            ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.6rem" }}>
+                <span style={{ fontSize:"0.65rem", color:"#facc15" }}>Manuelle Baseline aktiv</span>
+                <button onClick={()=>onUpdate({baselineRmssdMin:"", baselineRmssdMax:""})} style={{ fontSize:"0.65rem", color:"#818cf8", background:"none", border:"none", cursor:"pointer", padding:0, fontFamily:"inherit" }}>Zurück zur automatischen Baseline</button>
+              </div>
+            : null}
         <div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end" }}>
-          {[["Min","baselineRmssdMin"],["Max","baselineRmssdMax"]].map(([l,k])=>(<div key={k}><label style={{ fontSize:"0.68rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={s[k]} placeholder="—" onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.6rem", width:"80px", fontFamily:"monospace", fontSize:"0.9rem" }}/></div>))}
+          {[["Min","baselineRmssdMin",dynBaseline?.rmssdMin],["Max","baselineRmssdMax",dynBaseline?.rmssdMax]].map(([l,k,ph])=>(<div key={k}><label style={{ fontSize:"0.68rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={s[k]} placeholder={ph != null ? String(ph) : "—"} onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.6rem", width:"80px", fontFamily:"monospace", fontSize:"0.9rem" }}/></div>))}
           <span style={{ color:"#94a3b8", fontSize:"0.78rem", paddingBottom:"0.4rem" }}>ms</span>
         </div>
         <div style={{ fontSize:"0.65rem", color:"#64748b", marginTop:"0.5rem" }}>Garmin App → HFV → 30-Tage-Übersicht</div>
@@ -808,8 +864,16 @@ function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll }
 
       <div style={sec}>
         <div style={sLbl}>Morgenpuls Baseline</div>
+        {!s.baselineHrMin && !s.baselineHrMax && dynBaseline?.hrMin
+          ? <div style={{ fontSize:"0.65rem", color:"#818cf8", marginBottom:"0.6rem" }}>Automatisch aus deinen letzten {dynBaseline.hrN} Einträgen berechnet</div>
+          : (s.baselineHrMin || s.baselineHrMax)
+            ? <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.6rem" }}>
+                <span style={{ fontSize:"0.65rem", color:"#facc15" }}>Manuelle Baseline aktiv</span>
+                <button onClick={()=>onUpdate({baselineHrMin:"", baselineHrMax:""})} style={{ fontSize:"0.65rem", color:"#818cf8", background:"none", border:"none", cursor:"pointer", padding:0, fontFamily:"inherit" }}>Zurück zur automatischen Baseline</button>
+              </div>
+            : null}
         <div style={{ display:"flex", gap:"0.8rem", alignItems:"flex-end" }}>
-          {[["Min","baselineHrMin"],["Max","baselineHrMax"]].map(([l,k])=>(<div key={k}><label style={{ fontSize:"0.68rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={s[k]} placeholder="—" onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.6rem", width:"80px", fontFamily:"monospace", fontSize:"0.9rem" }}/></div>))}
+          {[["Min","baselineHrMin",dynBaseline?.hrMin],["Max","baselineHrMax",dynBaseline?.hrMax]].map(([l,k,ph])=>(<div key={k}><label style={{ fontSize:"0.68rem", color:"#64748b", display:"block", marginBottom:"0.3rem" }}>{l}</label><input type="number" value={s[k]} placeholder={ph != null ? String(ph) : "—"} onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.6rem", width:"80px", fontFamily:"monospace", fontSize:"0.9rem" }}/></div>))}
           <span style={{ color:"#94a3b8", fontSize:"0.78rem", paddingBottom:"0.4rem" }}>bpm</span>
         </div>
         <div style={{ fontSize:"0.65rem", color:"#64748b", marginTop:"0.5rem" }}>Garmin Connect → Schlaf → Ruheherzfrequenz → 30-Tage-Übersicht</div>
@@ -836,7 +900,7 @@ function SettingsTab({ settings:s, onUpdate, entries, allTriggers, onDeleteAll }
 
       <div style={sec}>
         <div style={sLbl}>Erinnerungszeiten</div>
-        {[[<Sunrise size={14}/>, "morningTime"],[<Moon size={14}/>, "eveningTime"]].map(([icon,k])=>(<div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.7rem" }}><span style={{ fontSize:"0.82rem", color:"#94a3b8", display:"flex", alignItems:"center", gap:"0.35rem" }}>{icon}{k==="morningTime"?"Morgen":"Abend"}</span><input type="time" value={s[k]} onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.33rem 0.6rem", fontFamily:"monospace", fontSize:"0.88rem", colorScheme:"dark" }}/></div>))}
+        {[[<Sunrise size={14}/>, "morningTime"],[<Moon size={14}/>, "eveningTime"]].map(([icon,k])=>(<div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.7rem" }}><span style={{ fontSize:"0.82rem", color:"#94a3b8", display:"flex", alignItems:"center", gap:"0.35rem" }}>{icon}{k==="morningTime"?"Morgen":"Abend"}</span><input type="time" value={s[k]} step="1800" onChange={e=>onUpdate({[k]:snapTo30(e.target.value)})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.33rem 0.6rem", fontFamily:"monospace", fontSize:"0.88rem", colorScheme:"dark" }}/></div>))}
         <button onClick={requestNotif} style={{ width:"100%", padding:"0.5rem", borderRadius:"8px", border:`1px solid ${s.notificationsEnabled?"#4ade80":"#334155"}`, background:s.notificationsEnabled?"#14532d22":"#1e293b", color:s.notificationsEnabled?"#4ade80":"#64748b", cursor:"pointer", fontFamily:"inherit", fontSize:"0.8rem", fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", gap:"0.4rem" }}>
           <Check size={14}/>{s.notificationsEnabled?"Push aktiv (tippen zum Deaktivieren)":"Push-Benachrichtigungen aktivieren"}
         </button>
@@ -1271,7 +1335,7 @@ export default function PEMTracker() {
           <AnalysisPanel entries={entries} allTriggers={allTriggers} settings={settings}/>
         </div>)}
 
-        {tab==="settings"&&<div style={{ padding:"0 1rem" }}><SettingsTab settings={settings} onUpdate={updateSettings} entries={entries} allTriggers={allTriggers} onDeleteAll={deleteAll}/></div>}
+        {tab==="settings"&&<div style={{ padding:"0 1rem" }}><SettingsTab settings={settings} onUpdate={updateSettings} entries={entries} allTriggers={allTriggers} onDeleteAll={deleteAll} dynBaseline={computeDynamicBaseline(entries)}/></div>}
       </div>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:"480px", background:"#0f172a", borderTop:"1px solid #1e293b", display:"flex", padding:"0.45rem 0 0.7rem", zIndex:20 }}>
