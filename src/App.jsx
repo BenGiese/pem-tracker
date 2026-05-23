@@ -5,6 +5,13 @@ import { Moon, Sunrise, Flame, ClipboardList, BarChart2, Settings2, Download, Up
 
 const STORAGE_KEY = "pem_log_entries_v2";
 const SETTINGS_KEY = "pem_settings_v2";
+const DEVICE_ID_KEY = "pem_device_id";
+
+function getDeviceId() {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem(DEVICE_ID_KEY, id); }
+  return id;
+}
 
 const BUILTIN_TRIGGERS = [
   "Stress", "Körperl. Aktivität", "Sozialer Kontakt",
@@ -666,10 +673,22 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
   const [confirmDelete,  setConfirmDelete]  = useState(false);
 
   const requestNotif = async () => {
-    if (!("Notification" in window)) { setNotifStatus("unsupported"); return; }
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setNotifStatus("unsupported"); return;
+    }
+    if (s.notificationsEnabled) {
+      await unsubscribeFromPush();
+      onUpdate({ notificationsEnabled: false });
+      setNotifStatus(null);
+      return;
+    }
     const p = await Notification.requestPermission();
     setNotifStatus(p);
-    if (p==="granted") onUpdate({notificationsEnabled:true});
+    if (p !== "granted") return;
+    try {
+      await subscribeToPush(s);
+      onUpdate({ notificationsEnabled: true });
+    } catch { void 0; }
   };
   const addTrigger    = () => { const v=newTrigger.trim(); if(v&&!allTriggers.includes(v)){onUpdate({customTriggers:[...(s.customTriggers||[]),v]});setNewTrigger("");} };
   const removeTrigger = t => onUpdate({customTriggers:(s.customTriggers||[]).filter(x=>x!==t)});
@@ -711,9 +730,10 @@ function SettingsTab({ settings:s, onUpdate, entries, onLoadTestData, allTrigger
         <div style={sLbl}>Erinnerungszeiten</div>
         {[[<Sunrise size={14}/>, "morningTime"],[<Moon size={14}/>, "eveningTime"]].map(([icon,k])=>(<div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.7rem" }}><span style={{ fontSize:"0.82rem", color:"#94a3b8", display:"flex", alignItems:"center", gap:"0.35rem" }}>{icon}{k==="morningTime"?"Morgen":"Abend"}</span><input type="time" value={s[k]} onChange={e=>onUpdate({[k]:e.target.value})} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.33rem 0.6rem", fontFamily:"monospace", fontSize:"0.88rem", colorScheme:"dark" }}/></div>))}
         <button onClick={requestNotif} style={{ width:"100%", padding:"0.5rem", borderRadius:"8px", border:`1px solid ${s.notificationsEnabled?"#4ade80":"#334155"}`, background:s.notificationsEnabled?"#14532d22":"#1e293b", color:s.notificationsEnabled?"#4ade80":"#64748b", cursor:"pointer", fontFamily:"inherit", fontSize:"0.8rem", fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", gap:"0.4rem" }}>
-          <Check size={14}/>{s.notificationsEnabled?"Benachrichtigungen aktiv":"Benachrichtigungen aktivieren"}
+          <Check size={14}/>{s.notificationsEnabled?"Push aktiv (tippen zum Deaktivieren)":"Push-Benachrichtigungen aktivieren"}
         </button>
         {notifStatus==="denied"&&<div style={{ fontSize:"0.65rem", color:"#f87171", marginTop:"0.4rem" }}>Blockiert — Chrome-Einstellungen → Benachrichtigungen erlauben.</div>}
+        {notifStatus==="unsupported"&&<div style={{ fontSize:"0.65rem", color:"#f87171", marginTop:"0.4rem" }}>Push wird auf diesem Gerät/Browser nicht unterstützt.</div>}
       </div>
 
       <div style={sec}>
@@ -890,38 +910,49 @@ function ImportModal({ parsed, existingDates, onImport, onClose }) {
   );
 }
 
-// ─── Notification Scheduling ──────────────────────────────────────────────────
+// ─── Push Notifications ───────────────────────────────────────────────────────
 
-let _reminderTimers = [];
+const PUSH_SERVER_URL = import.meta.env.VITE_PUSH_SERVER_URL || "";
 
-async function fireNotification(title, body) {
-  const icon = "/pem-tracker/favicon.svg";
-  if ("serviceWorker" in navigator) {
-    const reg = await navigator.serviceWorker.ready.catch(() => null);
-    if (reg) { reg.showNotification(title, { body, icon, badge: icon }); return; }
-  }
-  new Notification(title, { body, icon });
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
-function scheduleReminders(settings) {
-  _reminderTimers.forEach(clearTimeout);
-  _reminderTimers = [];
-  if (!settings.notificationsEnabled || !("Notification" in window) || Notification.permission !== "granted") return;
+async function subscribeToPush({ morningTime, eveningTime }) {
+  const sw = await navigator.serviceWorker.ready;
+  const existing = await sw.pushManager.getSubscription();
+  if (existing) await existing.unsubscribe();
+  const sub = await sw.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+  });
+  await fetch(`${PUSH_SERVER_URL}/api/subscribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      deviceId: getDeviceId(),
+      subscription: sub.toJSON(),
+      morningTime: morningTime || "07:30",
+      eveningTime: eveningTime || "20:00",
+    }),
+  });
+  return sub;
+}
 
-  const plan = (timeStr, title, body) => {
-    const [h, m] = timeStr.split(":").map(Number);
-    const target = new Date();
-    target.setHours(h, m, 0, 0);
-    if (target <= new Date()) target.setDate(target.getDate() + 1);
-    const id = setTimeout(() => {
-      fireNotification(title, body);
-      scheduleReminders(settings);
-    }, target - new Date());
-    _reminderTimers.push(id);
-  };
-
-  plan(settings.morningTime || "07:30", "PEM-Tracker: Morgen", "HFV-Werte eintragen, bevor du aufstehst.");
-  plan(settings.eveningTime || "20:00", "PEM-Tracker: Abend", "Zeit für dein Abend-Protokoll.");
+async function unsubscribeFromPush() {
+  try {
+    const sw = await navigator.serviceWorker.ready;
+    const sub = await sw.pushManager.getSubscription();
+    if (sub) await sub.unsubscribe();
+    await fetch(`${PUSH_SERVER_URL}/api/subscribe`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId: getDeviceId() }),
+    });
+  } catch { void 0; }
 }
 
 export default function PEMTracker() {
@@ -935,7 +966,13 @@ export default function PEMTracker() {
   const [morning,        setMorning]        = useState({...DEFAULT_MORNING});
   const [savedToday,     setSavedToday]     = useState({evening:false,morning:false});
 
-  useEffect(() => { scheduleReminders(settings); }, [settings]);
+  // Re-register push subscription when reminder times change
+  const { notificationsEnabled, morningTime, eveningTime } = settings;
+  useEffect(() => {
+    if (notificationsEnabled && "serviceWorker" in navigator && "PushManager" in window) {
+      subscribeToPush({ morningTime, eveningTime }).catch(() => void 0);
+    }
+  }, [notificationsEnabled, morningTime, eveningTime]);
 
   const today       = mkDateStr(new Date());
   const allTriggers = [...BUILTIN_TRIGGERS, ...(settings.customTriggers||[])];

@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: '/pem-tracker/',
+  base: '/',
   plugins: [
     react(),
     VitePWA({
@@ -17,21 +17,17 @@ export default defineConfig({
         background_color: '#020617',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/pem-tracker/',
-        start_url: '/pem-tracker/',
+        scope: '/',
+        start_url: '/',
         icons: [
           { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
         ],
       },
-      workbox: {
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: { cacheName: 'google-fonts', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
-          },
-        ],
       },
     }),
   ],
