@@ -12,11 +12,15 @@ const json = (data, status = 200) =>
     headers: { 'Content-Type': 'application/json', ...CORS },
   });
 
-async function sendAll(env, isEvening) {
-  const title = isEvening ? 'PEM-Tracker: Abend-Check' : 'PEM-Tracker: Morgen-Check';
-  const body = isEvening
-    ? 'Wie war dein Tag? Bitte deinen Abend-Eintrag machen.'
-    : 'Guten Morgen! Bitte deinen Morgen-Eintrag machen.';
+function toMin(utcTime) {
+  const [h, m] = utcTime.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// forceSlot: 'morning' | 'evening' | null (null = check per-user UTC times)
+async function sendAll(env, forceSlot) {
+  const now = new Date();
+  const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
 
   let cursor;
   do {
@@ -26,9 +30,23 @@ async function sendAll(env, isEvening) {
       list.keys.map(async ({ name }) => {
         const stored = await env.KV.get(name, 'json');
         if (!stored?.subscription) return;
+
+        const morningMin = toMin(stored.morningUTC || '05:30');
+        const eveningMin = toMin(stored.eveningUTC || '18:00');
+        const inWindow = (min) => nowMin - min >= 0 && nowMin - min < 30;
+
+        const isMorning = forceSlot === 'morning' || (forceSlot == null && inWindow(morningMin));
+        const isEvening = forceSlot === 'evening' || (forceSlot == null && inWindow(eveningMin));
+        if (!isMorning && !isEvening) return;
+
+        const title = isMorning ? 'PEM-Tracker: Morgen-Check' : 'PEM-Tracker: Abend-Check';
+        const body = isMorning
+          ? 'Guten Morgen! Bitte deinen Morgen-Eintrag machen.'
+          : 'Wie war dein Tag? Bitte deinen Abend-Eintrag machen.';
+
         try {
           const status = await sendPush(stored.subscription, JSON.stringify({ title, body }), env);
-          if (status === 410) await env.KV.delete(name); // subscription expired
+          if (status === 410) await env.KV.delete(name);
         } catch { /* ignore invalid subscriptions */ }
       }),
     );
@@ -38,15 +56,15 @@ async function sendAll(env, isEvening) {
 export default {
   async fetch(request, env) {
     const { method } = request;
-    const { pathname } = new URL(request.url);
+    const url = new URL(request.url);
 
     if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
-    if (pathname === '/api/subscribe') {
+    if (url.pathname === '/api/subscribe') {
       if (method === 'POST') {
-        const { deviceId, subscription, morningTime, eveningTime } = await request.json();
+        const { deviceId, subscription, morningUTC, eveningUTC } = await request.json();
         if (!deviceId || !subscription?.endpoint) return json({ error: 'Missing fields' }, 400);
-        await env.KV.put(`sub:${deviceId}`, JSON.stringify({ subscription, morningTime, eveningTime }));
+        await env.KV.put(`sub:${deviceId}`, JSON.stringify({ subscription, morningUTC, eveningUTC }));
         return json({ ok: true }, 201);
       }
       if (method === 'DELETE') {
@@ -56,10 +74,10 @@ export default {
       }
     }
 
-    // Manual trigger for testing: GET /api/notify?evening=1
-    if (pathname === '/api/notify' && method === 'GET') {
-      const isEvening = new URL(request.url).searchParams.get('evening') === '1';
-      await sendAll(env, isEvening);
+    // Manual trigger: GET /api/notify?slot=morning|evening (omit for time-based check)
+    if (url.pathname === '/api/notify' && method === 'GET') {
+      const slot = url.searchParams.get('slot') || null;
+      await sendAll(env, slot);
       return json({ ok: true });
     }
 
@@ -67,6 +85,6 @@ export default {
   },
 
   async scheduled(event, env) {
-    await sendAll(env, new Date().getUTCHours() >= 12);
+    await sendAll(env, null);
   },
 };

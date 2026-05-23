@@ -7,7 +7,7 @@ binding = "KV"
 id = "63cf2597c1c04ae398d37a906a16b45f"
 
 [triggers]
-crons = ["30 6 * * *", "0 19 * * *"]
+crons = ["*/30 * * * *"]
 
 # Secrets (set via: npx wrangler secret put VAPID_PUBLIC_KEY etc.)
 # VAPID_PUBLIC_KEY

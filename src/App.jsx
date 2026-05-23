@@ -921,6 +921,13 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
+function localToUTC(timeStr) {
+  const [h, m] = timeStr.split(":").map(Number);
+  const offsetMin = new Date().getTimezoneOffset(); // negative for UTC+
+  const totalMin = ((h * 60 + m + offsetMin) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(totalMin / 60)).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
+}
+
 async function subscribeToPush({ morningTime, eveningTime }) {
   const sw = await navigator.serviceWorker.ready;
   const existing = await sw.pushManager.getSubscription();
@@ -935,8 +942,8 @@ async function subscribeToPush({ morningTime, eveningTime }) {
     body: JSON.stringify({
       deviceId: getDeviceId(),
       subscription: sub.toJSON(),
-      morningTime: morningTime || "07:30",
-      eveningTime: eveningTime || "20:00",
+      morningUTC: localToUTC(morningTime || "07:30"),
+      eveningUTC: localToUTC(eveningTime || "20:00"),
     }),
   });
   return sub;
