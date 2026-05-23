@@ -12,8 +12,8 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-96.png',
     })
   );
 });
@@ -21,9 +21,10 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(list => {
-      const existing = list.find(c => 'focus' in c);
-      return existing ? existing.focus() : clients.openWindow('/');
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const appUrl = self.registration.scope;
+      const existing = list.find(c => c.url.startsWith(appUrl));
+      return existing ? existing.focus() : clients.openWindow(appUrl);
     })
   );
 });
