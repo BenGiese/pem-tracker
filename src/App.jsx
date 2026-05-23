@@ -278,14 +278,21 @@ function computeTriggerLagCorrelations(entries, allTriggers, settings = {}) {
   const { pem, noPem, labeled } = getLabeledInWindow(entries, settings);
   if (labeled.length < 5 || !pem.length || !noPem.length) return null;
 
-  const getLagEntry = entry => entries.find(e => e.date === shiftDate(entry.date, -lagDays));
+  const getLagWindow = entry => {
+    const result = [];
+    for (let i = 1; i <= lagDays; i++) {
+      const e = entries.find(e2 => e2.date === shiftDate(entry.date, -i));
+      if (e) result.push(e);
+    }
+    return result;
+  };
 
   const results = [];
 
-  // Triggers (binary: selected or not on lag day)
+  // Triggers (binary: did trigger appear on ANY of the 1..lagDays days before?)
   for (const t of allTriggers) {
-    const pV  = pem.map(e   => (getLagEntry(e)?.evening?.triggers || []).includes(t) ? 1 : 0);
-    const nV  = noPem.map(e => (getLagEntry(e)?.evening?.triggers || []).includes(t) ? 1 : 0);
+    const pV  = pem.map(e   => getLagWindow(e).some(le => (le.evening?.triggers || []).includes(t)) ? 1 : 0);
+    const nV  = noPem.map(e => getLagWindow(e).some(le => (le.evening?.triggers || []).includes(t)) ? 1 : 0);
     if (pV.length < 2 || nV.length < 2) continue;
     const ap = avgArr(pV), an = avgArr(nV), delta = ap - an;
     if (Math.abs(delta) <= 0.1) continue;
@@ -298,9 +305,9 @@ function computeTriggerLagCorrelations(entries, allTriggers, settings = {}) {
     });
   }
 
-  // Activity level (treated as trigger: was activity ≥ "Leicht" on lag day?)
-  const actPV  = pem.map(e   => (getLagEntry(e)?.evening?.activity_today ?? 0) >= 2 ? 1 : 0);
-  const actNV  = noPem.map(e => (getLagEntry(e)?.evening?.activity_today ?? 0) >= 2 ? 1 : 0);
+  // Activity level (was activity ≥ "Leicht" on ANY of the 1..lagDays days before?)
+  const actPV  = pem.map(e   => getLagWindow(e).some(le => (le.evening?.activity_today ?? 0) >= 2) ? 1 : 0);
+  const actNV  = noPem.map(e => getLagWindow(e).some(le => (le.evening?.activity_today ?? 0) >= 2) ? 1 : 0);
   if (actPV.length >= 2 && actNV.length >= 2) {
     const ap = avgArr(actPV), an = avgArr(actNV), delta = ap - an;
     if (Math.abs(delta) > 0.1) {
@@ -634,8 +641,8 @@ function AnalysisPanel({ entries, allTriggers, settings }) {
         data={prodrome}
       />
       <CorrelationBlock
-        title={`Trigger & Aktivität (vor ${lagDays} ${lagDays===1?"Tag":"Tagen"})`}
-        subtitle={`Welche Auslöser ${lagDays} ${lagDays===1?"Tag":"Tage"} vor PEM-Tagen traten öfter auf als vor normalen Tagen? Lag-Fenster in Einstellungen anpassen.`}
+        title={`Trigger & Aktivität (${lagDays===1?"1 Tag":"bis "+lagDays+" Tage"} vorher)`}
+        subtitle={`Welche Auslöser traten in den ${lagDays===1?"24h":"bis zu "+lagDays+" Tagen"} vor PEM-Tagen häufiger auf als vor normalen Tagen? Fenster in Einstellungen anpassen.`}
         data={triggers}
       />
     </div>
