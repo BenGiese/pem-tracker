@@ -1049,7 +1049,7 @@ export default function PEMTracker() {
   const TABS  = [{key:"log",icon:<FileText size={20}/>,label:"Eingabe"},{key:"history",icon:<ClipboardList size={20}/>,label:"Verlauf"},{key:"analysis",icon:<BarChart2 size={20}/>,label:"Analyse"},{key:"settings",icon:<Settings2 size={20}/>,label:"Einstellungen"}];
 
   return (
-    <div style={{ minHeight:"100vh", background:"#020617", color:"#e2e8f0", fontFamily:"'Segoe UI', sans-serif", paddingBottom:"5rem", maxWidth:"480px", margin:"0 auto" }}>
+    <div style={{ minHeight:"100vh", background:"#020617", color:"#e2e8f0", fontFamily:"'Segoe UI', sans-serif", paddingBottom:"5rem", maxWidth:"480px", margin:"0 auto", width:"100%" }}>
       <style>{`input[type=range]{height:4px;border-radius:2px;cursor:pointer} *{box-sizing:border-box} textarea{resize:vertical}`}</style>
 
       {showOnboarding&&<OnboardingModal onComplete={completeOnboarding}/>}
@@ -1068,8 +1068,8 @@ export default function PEMTracker() {
         </div>
       </div>
 
-      <div style={{ padding:"0.9rem 1rem" }}>
-        {tab==="log"&&(<>
+      <div style={{ padding:"0.9rem 0" }}>
+        {tab==="log"&&(<div style={{ padding:"0 1rem" }}>
           <div style={{ display:"flex", gap:"0.5rem", marginBottom:"1rem" }}>
             {[["morning",<Sunrise size={14}/>,"Morgen"],["evening",<Moon size={14}/>,"Abend"]].map(([v,icon,l])=>(<button key={v} onClick={()=>setSubTab(v)} style={{ flex:1, padding:"0.5rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.82rem", fontWeight:600, position:"relative", border:`1px solid ${subTab===v?"#818cf8":"#1e293b"}`, background:subTab===v?"#1e1b4b":"#0f172a", color:subTab===v?"#818cf8":"#94a3b8", display:"flex", alignItems:"center", justifyContent:"center", gap:"0.35rem" }}>{icon}{l}{savedToday[v]&&<span style={{ position:"absolute", top:"4px", right:"6px", width:"6px", height:"6px", borderRadius:"50%", background:"#4ade80" }}/>}</button>))}
           </div>
@@ -1108,9 +1108,9 @@ export default function PEMTracker() {
               {[["rMSSD","Garmin App → Herzfrequenzvariabilität"],["HFV-Status","Garmin App → Gesundheit → HFV-Status"],["Morgenpuls","Garmin Connect → Schlaf → Ruheherzfrequenz"],["Atemfrequenz","Garmin Connect → Schlaf → Atemfrequenz"]].map(([k,v])=>(<div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"0.22rem 0", borderBottom:"1px solid #0f172a" }}><span style={{ fontSize:"0.7rem", color:"#818cf8", fontWeight:600 }}>{k}</span><span style={{ fontSize:"0.65rem", color:"#334155" }}>{v}</span></div>))}
             </div>
           </div>)}
-        </>)}
+        </div>)}
 
-        {tab==="history"&&(<div style={{ width:"100%" }}>
+        {tab==="history"&&(<div style={{ padding:"0 1rem", width:"100%" }}>
           {settings.showStreak&&<StreakBanner streak={streak}/>}
           <div style={{ display:"flex", gap:"0.5rem", marginBottom:"1rem" }}>
             <button onClick={()=>fileInputRef.current?.click()} style={{ flex:1, padding:"0.6rem", borderRadius:"10px", border:"1px solid #334155", cursor:"pointer", fontFamily:"inherit", fontWeight:600, fontSize:"0.82rem", background:"#0f172a", color:"#94a3b8", display:"flex", alignItems:"center", justifyContent:"center", gap:"0.5rem" }}>
@@ -1126,7 +1126,7 @@ export default function PEMTracker() {
           }
         </div>)}
 
-        {tab==="analysis"&&(<div>
+        {tab==="analysis"&&(<div style={{ padding:"0 1rem" }}>
           <div style={{ background:"#0f172a", borderRadius:"12px", padding:"1rem 1.1rem", border:"1px solid #1e293b", marginBottom:"1rem" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:"0.7rem" }}>
               <div style={{ fontSize:"0.68rem", color:"#818cf8", letterSpacing:"0.1em", textTransform:"uppercase" }}>14-Tage-Trend</div>
@@ -1141,7 +1141,7 @@ export default function PEMTracker() {
           <AnalysisPanel entries={entries} allTriggers={allTriggers} settings={settings}/>
         </div>)}
 
-        {tab==="settings"&&<SettingsTab settings={settings} onUpdate={updateSettings} entries={entries} onLoadTestData={loadTestData} allTriggers={allTriggers} onDeleteAll={deleteAll}/>}
+        {tab==="settings"&&<div style={{ padding:"0 1rem" }}><SettingsTab settings={settings} onUpdate={updateSettings} entries={entries} onLoadTestData={loadTestData} allTriggers={allTriggers} onDeleteAll={deleteAll}/></div>}
       </div>
 
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:"480px", background:"#0f172a", borderTop:"1px solid #1e293b", display:"flex", padding:"0.45rem 0 0.7rem", zIndex:20 }}>
