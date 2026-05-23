@@ -724,7 +724,14 @@ function OnboardingModal({ onComplete }) {
         <div style={{ fontSize:"0.65rem", color:"#64748b", marginTop:"0.5rem" }}>Unbekannt? Leer lassen, später in Einstellungen ergänzen.</div>
       </div>},
     { title:"Erinnerungszeiten", sub:"Wann soll die App erinnern?",
-      content:<div style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>{[["🌙 Abend","eveningTime"],["🌅 Morgen","morningTime"]].map(([l,k])=><div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}><label style={{ fontSize:"0.82rem", color:"#94a3b8" }}>{l}</label><input type="time" value={data[k]} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.7rem", fontFamily:"monospace", fontSize:"0.95rem", colorScheme:"dark" }}/></div>)}</div>},
+      content:<div style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>
+        {[["morningTime",<Sunrise size={14}/>,"Morgen"],["eveningTime",<Moon size={14}/>,"Abend"]].map(([k,icon,l])=>(
+          <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <label style={{ fontSize:"0.82rem", color:"#94a3b8", display:"flex", alignItems:"center", gap:"0.4rem" }}>{icon}{l}</label>
+            <input type="time" value={data[k]} onChange={e=>setData(d=>({...d,[k]:e.target.value}))} style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:"6px", color:"#e2e8f0", padding:"0.4rem 0.7rem", fontFamily:"monospace", fontSize:"0.95rem", colorScheme:"dark" }}/>
+          </div>
+        ))}
+      </div>},
     { title:"Fast fertig ✓", sub:"Streak-Anzeige aktivieren?",
       content:<div style={{ display:"flex", gap:"0.7rem" }}>{[["Ja",true],["Nein",false]].map(([l,v])=><button key={l} onClick={()=>setData(d=>({...d,showStreak:v}))} style={{ flex:1, padding:"0.65rem", borderRadius:"8px", cursor:"pointer", fontFamily:"inherit", fontSize:"0.85rem", fontWeight:600, border:`1px solid ${data.showStreak===v?"#818cf8":"#334155"}`, background:data.showStreak===v?"#1e1b4b":"#1e293b", color:data.showStreak===v?"#818cf8":"#94a3b8" }}>{l}</button>)}</div>},
   ];
@@ -1038,12 +1045,15 @@ function localToUTC(timeStr) {
 
 async function subscribeToPush({ morningTime, eveningTime }) {
   const sw = await navigator.serviceWorker.ready;
-  const existing = await sw.pushManager.getSubscription();
-  if (existing) await existing.unsubscribe();
-  const sub = await sw.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
-  });
+  // Reuse existing subscription — unsubscribe+resubscribe can silently lose the subscription
+  // if the new subscribe() call fails, leaving no valid entry in the Worker KV.
+  let sub = await sw.pushManager.getSubscription();
+  if (!sub) {
+    sub = await sw.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+    });
+  }
   await fetch(`${PUSH_SERVER_URL}/api/subscribe`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
